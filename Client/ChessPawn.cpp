@@ -1,0 +1,101 @@
+#include "ChessPawn.h"
+#include <iostream>
+#include <Windows.h>
+
+ChessPawn::ChessPawn()
+{
+	posX.store(3);
+	posY.store(3);
+	ChangeState(posX, posY);
+
+	chessBoard = {};
+}
+
+ChessPawn::~ChessPawn()
+{
+}
+
+void ChessPawn::MoniteringKey()
+{
+	if (GetAsyncKeyState(VK_UP) & 1) {
+		MoveUp();
+		Draw();
+	}
+	if (GetAsyncKeyState(VK_DOWN) & 1) {
+		MoveDown();
+		Draw();
+	}
+	if (GetAsyncKeyState(VK_LEFT) & 1) {
+		MoveLeft();
+		Draw();
+	}
+	if (GetAsyncKeyState(VK_RIGHT) & 1) {
+		MoveRight();
+		Draw();
+	}
+}
+
+void ChessPawn::Draw()
+{
+	using std::wcout, std::endl;
+
+	system("cls");
+
+	for (int i = 0; i < chessBoard.size(); ++i) {
+		for (int j = 0; j < chessBoard[i].size(); ++j) {
+			if (chessBoard[i][j] == false)
+				wcout << L"🟩";
+			else
+				wcout << L"♟️";
+		}
+
+		wcout << endl;
+	}
+}
+
+void ChessPawn::ChangeState(int posX, int posY)
+{
+	if (chessBoard[posX][posY] == false)
+		chessBoard[posX][posY] = true;
+	else
+		chessBoard[posX][posY] = false;
+}
+
+// 좌상단 좌표가 (0, 0)
+// 우하단 좌표가 (7, 7)
+
+void ChessPawn::MoveUp()
+{
+	if (posY > 0) {
+		ChangeState(posX, posY);
+		posY.fetch_add(-1);
+		ChangeState(posX, posY);
+	}
+}
+
+void ChessPawn::MoveDown()
+{
+	if (posY < 7) {
+		ChangeState(posX, posY);
+		posY.fetch_add(1);
+		ChangeState(posX, posY);
+	}
+}
+
+void ChessPawn::MoveLeft()
+{
+	if (posX > 0) {
+		ChangeState(posX, posY);
+		posX.fetch_add(-1);
+		ChangeState(posX, posY);
+	}
+}
+
+void ChessPawn::MoveRight()
+{
+	if (posX < 7) {
+		ChangeState(posX, posY);
+		posX.fetch_add(1);
+		ChangeState(posX, posY);
+	}
+}
