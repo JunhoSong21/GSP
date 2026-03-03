@@ -2,13 +2,31 @@
 #include <iostream>
 #include <Windows.h>
 
+#include <io.h>
+#include <fcntl.h>
+
+using std::wcout, std::endl;
+
 ChessPawn::ChessPawn()
 {
+	chessBoard = {};
+
 	posX.store(3);
 	posY.store(3);
 	ChangeState(posX, posY);
 
-	chessBoard = {};
+	// 유니코드 출력을 위한 _setmode
+	if (-1 == _setmode(_fileno(stdout), _O_U16TEXT)) {
+		wcout << L"_setmode() Fail" << endl;
+		return;
+	}
+
+	// 커서 숨기기 코드
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_CURSOR_INFO cursorInfo;
+	GetConsoleCursorInfo(hConsole, &cursorInfo);
+	cursorInfo.bVisible = FALSE;
+	SetConsoleCursorInfo(hConsole, &cursorInfo);
 }
 
 ChessPawn::~ChessPawn()
@@ -37,20 +55,24 @@ void ChessPawn::MoniteringKey()
 
 void ChessPawn::Draw()
 {
-	using std::wcout, std::endl;
-
 	system("cls");
 
 	for (int i = 0; i < chessBoard.size(); ++i) {
 		for (int j = 0; j < chessBoard[i].size(); ++j) {
-			if (chessBoard[i][j] == false)
-				wcout << L"🟩";
+			if (chessBoard[j][i] == false) {
+				if ((i + j) & 1)
+					wcout << L"\u2592\u2592";
+				else
+					wcout << L"\u2588\u2588";
+			}
 			else
-				wcout << L"♟️";
+				wcout << L"\u2659 ";
 		}
-
+	
 		wcout << endl;
 	}
+	
+	wcout << "(" << posX << ", " << posY << ")" << endl;
 }
 
 void ChessPawn::ChangeState(int posX, int posY)
