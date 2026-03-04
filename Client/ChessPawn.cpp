@@ -55,7 +55,7 @@ void ChessPawn::MoniteringKey()
 
 void ChessPawn::Draw()
 {
-	system("cls");
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), COORD(0, 0));
 
 	for (int i = 0; i < chessBoard.size(); ++i) {
 		for (int j = 0; j < chessBoard[i].size(); ++j) {
