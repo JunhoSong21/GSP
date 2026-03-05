@@ -66,7 +66,7 @@ void ChessPawn::Draw()
 					wcout << L"\u2588\u2588";
 			}
 			else
-				wcout << L"\u2659 ";
+				wcout << L"\u2659 "; // 공백 1칸 포함
 		}
 	
 		wcout << endl;
@@ -77,7 +77,7 @@ void ChessPawn::Draw()
 
 void ChessPawn::ChangeState(int posX, int posY)
 {
-	if (chessBoard[posX][posY] == false)
+	if (false == chessBoard[posX][posY])
 		chessBoard[posX][posY] = true;
 	else
 		chessBoard[posX][posY] = false;

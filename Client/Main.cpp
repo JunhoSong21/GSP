@@ -5,7 +5,7 @@ int main()
 	ChessPawn chessPawn;
 
 	chessPawn.Draw();
-	while (true) {
+
+	while (true)
 		chessPawn.MoniteringKey();
-	}
 }
