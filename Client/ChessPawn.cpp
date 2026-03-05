@@ -59,7 +59,7 @@ void ChessPawn::Draw()
 
 	for (int i = 0; i < chessBoard.size(); ++i) {
 		for (int j = 0; j < chessBoard[i].size(); ++j) {
-			if (chessBoard[j][i] == false) {
+			if (chessBoard[i][j] == false) {
 				if ((i + j) & 1)
 					wcout << L"\u2592\u2592";
 				else
@@ -77,10 +77,10 @@ void ChessPawn::Draw()
 
 void ChessPawn::ChangeState(int posX, int posY)
 {
-	if (false == chessBoard[posX][posY])
-		chessBoard[posX][posY] = true;
+	if (false == chessBoard[posY][posX])
+		chessBoard[posY][posX] = true;
 	else
-		chessBoard[posX][posY] = false;
+		chessBoard[posY][posX] = false;
 }
 
 // 좌상단 좌표가 (0, 0)
