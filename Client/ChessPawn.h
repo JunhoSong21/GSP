@@ -10,7 +10,7 @@ public:
 	void MoniteringKey();
 	void Draw();
 
-	void ChangeState(int posX, int posY);
+	void ChangeState(char posX, char posY);
 
 	void MoveUp();
 	void MoveDown();
@@ -18,8 +18,8 @@ public:
 	void MoveRight();
 
 private:
-	std::atomic<int> posX = 0;
-	std::atomic<int> posY = 0;
+	std::atomic<char> posX = 0;
+	std::atomic<char> posY = 0;
 
 	std::array<std::array<bool, 8>, 8> chessBoard;
 };

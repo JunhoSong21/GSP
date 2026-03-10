@@ -72,10 +72,10 @@ void ChessPawn::Draw()
 		wcout << endl;
 	}
 	
-	wcout << "(" << posX << ", " << posY << ")" << endl;
+	wcout << "(" << (int)posX << ", " << (int)posY << ")" << endl;
 }
 
-void ChessPawn::ChangeState(int posX, int posY)
+void ChessPawn::ChangeState(char posX, char posY)
 {
 	if (false == chessBoard[posY][posX])
 		chessBoard[posY][posX] = true;
