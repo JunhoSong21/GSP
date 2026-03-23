@@ -2,122 +2,71 @@
 #include <iostream>
 #include <Windows.h>
 
-#include <io.h>
-#include <fcntl.h>
-
-using std::wcout, std::endl;
+//#include <io.h>
+//#include <fcntl.h>
+#include <conio.h>
 
 ChessPawn::ChessPawn()
 {
-	chessBoard = {};
-
-	posX.store(3);
-	posY.store(3);
-	ChangeState(posX, posY);
-
-	// 유니코드 출력을 위한 _setmode
-	if (-1 == _setmode(_fileno(stdout), _O_U16TEXT)) {
-		wcout << L"_setmode() Fail" << endl;
-		return;
-	}
-
+	//// 유니코드 출력을 위한 _setmode
+	//if (-1 == _setmode(_fileno(stdout), _O_U16TEXT)) {
+	//	std::wcout << L"_setmode() Fail" << L"\n";
+	//	return;
+	//}
+	
 	// 커서 숨기기 코드
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	HANDLE hConsole = ::GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_CURSOR_INFO cursorInfo;
-	GetConsoleCursorInfo(hConsole, &cursorInfo);
+	::GetConsoleCursorInfo(hConsole, &cursorInfo);
 	cursorInfo.bVisible = FALSE;
-	SetConsoleCursorInfo(hConsole, &cursorInfo);
+	::SetConsoleCursorInfo(hConsole, &cursorInfo);
 }
 
 ChessPawn::~ChessPawn()
 {
 }
 
-void ChessPawn::MoniteringKey()
+int ChessPawn::MoniteringKey()
 {
-	if (GetAsyncKeyState(VK_UP) & 1) {
-		MoveUp();
-		Draw();
-	}
-	if (GetAsyncKeyState(VK_DOWN) & 1) {
-		MoveDown();
-		Draw();
-	}
-	if (GetAsyncKeyState(VK_LEFT) & 1) {
-		MoveLeft();
-		Draw();
-	}
-	if (GetAsyncKeyState(VK_RIGHT) & 1) {
-		MoveRight();
-		Draw();
-	}
+	//if (GetAsyncKeyState(VK_UP) & 1) {
+	//	return Direction::UP;
+	//}
+	//if (GetAsyncKeyState(VK_DOWN) & 1) {
+	//	return Direction::DOWN;
+	//}
+	//if (GetAsyncKeyState(VK_LEFT) & 1) {
+	//	return Direction::LEFT;
+	//}
+	//if (GetAsyncKeyState(VK_RIGHT) & 1) {
+	//	return Direction::RIGHT;
+	//}
+	
+	// 과제 구현을 위해 블로킹 방식으로 전환
+	int input = _getch();
+	input = _getch();  
+	
+	return input;
 }
 
-void ChessPawn::Draw()
+void ChessPawn::Draw(int posX, int posY)
 {
-	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), COORD(0, 0));
+	::SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), COORD(0, 0));
 
-	for (int i = 0; i < chessBoard.size(); ++i) {
-		for (int j = 0; j < chessBoard[i].size(); ++j) {
-			if (chessBoard[i][j] == false) {
-				if ((i + j) & 1)
-					wcout << L"\u2592\u2592";
-				else
-					wcout << L"\u2588\u2588";
+	for (int i = 0; i < 8; ++i) {
+		for (int j = 0; j < 8; ++j) {
+			if (posX == j && posY == i) {
+				std::wcout << L"\u2659 ";
+				continue;
 			}
+
+			if ((i + j) & 1)
+				std::wcout << L"\u2592\u2592";
 			else
-				wcout << L"\u2659 "; // 공백 1칸 포함
+				std::wcout << L"\u2588\u2588";
 		}
 	
-		wcout << endl;
+		std::wcout << L"\n";
 	}
 	
-	wcout << "(" << (int)posX << ", " << (int)posY << ")" << endl;
-}
-
-void ChessPawn::ChangeState(char posX, char posY)
-{
-	if (false == chessBoard[posY][posX])
-		chessBoard[posY][posX] = true;
-	else
-		chessBoard[posY][posX] = false;
-}
-
-// 좌상단 좌표가 (0, 0)
-// 우하단 좌표가 (7, 7)
-
-void ChessPawn::MoveUp()
-{
-	if (posY > 0) {
-		ChangeState(posX, posY);
-		posY.fetch_add(-1);
-		ChangeState(posX, posY);
-	}
-}
-
-void ChessPawn::MoveDown()
-{
-	if (posY < 7) {
-		ChangeState(posX, posY);
-		posY.fetch_add(1);
-		ChangeState(posX, posY);
-	}
-}
-
-void ChessPawn::MoveLeft()
-{
-	if (posX > 0) {
-		ChangeState(posX, posY);
-		posX.fetch_add(-1);
-		ChangeState(posX, posY);
-	}
-}
-
-void ChessPawn::MoveRight()
-{
-	if (posX < 7) {
-		ChangeState(posX, posY);
-		posX.fetch_add(1);
-		ChangeState(posX, posY);
-	}
+	std::wcout << L"(" << posX << L", " << posY << L")" << L"\n";
 }

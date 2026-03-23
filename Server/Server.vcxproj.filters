@@ -7,14 +7,14 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="NetworkHeader.h" />
+    <Filter Include="ChessPawn">
+      <UniqueIdentifier>{39696180-281e-4dc7-8a29-7c9d716269fa}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="ChessPawn.h">
       <Filter>ChessPawn</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="ChessPawn">
-      <UniqueIdentifier>{76f72d60-f413-47a6-ac9c-af77e9eab98f}</UniqueIdentifier>
-    </Filter>
+    <ClInclude Include="NetworkHeader.h" />
   </ItemGroup>
 </Project>

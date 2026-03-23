@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{1bd5a4a1-644e-4439-87c4-2d4473abc774}</ProjectGuid>
-    <RootNamespace>Client</RootNamespace>
+    <ProjectGuid>{4afcf0e6-4b35-43f8-8a75-e85dc5e69c25}</ProjectGuid>
+    <RootNamespace>ServerEcho</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -127,12 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ChessPawn.cpp" />
-    <ClCompile Include="Main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="ChessPawn.h" />
-    <ClInclude Include="NetworkHeader.h" />
+    <ClCompile Include="Server_Echo.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
