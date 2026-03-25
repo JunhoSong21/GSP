@@ -13,3 +13,8 @@
 #include <malloc.h>
 #include <memory.h>
 #include <tchar.h>
+
+// GDI+
+#include <ole2.h>
+#include <gdiplus.h>
+#pragma comment(lib, "gdiplus.lib")

@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Client_WinAPI.vcxproj" />
+  <Project Path="Client_WinAPI.vcxproj" Id="16eeef9f-5bb9-428e-bc03-bf8932ddfb98" />
 </Solution>

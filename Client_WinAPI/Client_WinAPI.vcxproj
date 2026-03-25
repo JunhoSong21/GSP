@@ -127,12 +127,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ChessPawn.h" />
     <ClInclude Include="Client_WinAPI.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="NetworkHeader.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ChessPawn.cpp" />
     <ClCompile Include="Client_WinAPI.cpp" />
   </ItemGroup>
   <ItemGroup>

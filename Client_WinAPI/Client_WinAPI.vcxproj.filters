@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="소스 파일\ChessPawn">
+      <UniqueIdentifier>{89247d63-e8fc-42c1-bf46-5b88e84f8b3e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -27,10 +30,19 @@
     <ClInclude Include="Client_WinAPI.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="ChessPawn.h">
+      <Filter>소스 파일\ChessPawn</Filter>
+    </ClInclude>
+    <ClInclude Include="NetworkHeader.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Client_WinAPI.cpp">
       <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="ChessPawn.cpp">
+      <Filter>소스 파일\ChessPawn</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
