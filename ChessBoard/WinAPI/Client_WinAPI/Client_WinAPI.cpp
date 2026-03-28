@@ -13,13 +13,15 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름�
 
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
-BOOL                InitInstance(HINSTANCE, int);
+BOOL                InitInstance(HINSTANCE, int, HWND&);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 // 체스 프로그램 전역변수
 ChessPawn* chess_pawn = new ChessPawn;
 ULONG_PTR gdiplusToken;
+
+void Network_Loop(SOCKET s_socket, Direction send_data);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -58,13 +60,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
 
+    u_long mode = 1;
+    ioctlsocket(s_socket, FIONBIO, &mode);
+
     // 전역 문자열을 초기화합니다.
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
     LoadStringW(hInstance, IDC_CLIENTWINAPI, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // 애플리케이션 초기화를 수행합니다:
-    if (!InitInstance (hInstance, nCmdShow))
+    HWND hWnd{};
+    if (!InitInstance (hInstance, nCmdShow, hWnd))
     {
         return FALSE;
     }
@@ -81,9 +87,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             ::TranslateMessage(&msg);
             ::DispatchMessageW(&msg);
         }
-        else {
 
-        }
+        Direction direction = chess_pawn->MoniteringKey();
+        Network_Loop(s_socket, direction);
+        InvalidateRect(hWnd, NULL, TRUE);
+        UpdateWindow(hWnd);
     }
 
     Gdiplus::GdiplusShutdown(gdiplusToken);
@@ -111,11 +119,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
+BOOL InitInstance(HINSTANCE hInstance, int nCmdShow, HWND& hWnd)
 {
    hInst = hInstance; // 인스턴스 핸들을 전역 변수에 저장합니다.
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
@@ -151,16 +159,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            
-            chess_pawn->DrawChessBoard(hdc, 50, 50, 400, 1, 2);
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
 
-            EndPaint(hWnd, &ps);
-        }
+        HDC memDC = CreateCompatibleDC(hdc);
+
+        RECT rect;
+        GetClientRect(hWnd, &rect);
+        HBITMAP hBitmap = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
+        HBITMAP hOldBitmap = (HBITMAP)SelectObject(memDC, hBitmap);
+
+        FillRect(memDC, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
+
+        chess_pawn->DrawChessBoard(memDC, 50, 50, 200, chess_pawn->Get_Pos_X(), chess_pawn->Get_Pos_Y());
+
+        BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
+
+        SelectObject(memDC, hOldBitmap);
+        DeleteObject(hBitmap);
+        DeleteDC(memDC);
+
+        EndPaint(hWnd, &ps);
+        break;
+    }
+    case WM_ERASEBKGND:
+        return 1;
         break;
     case WM_DESTROY:
+        delete chess_pawn;
         PostQuitMessage(0);
         break;
     default:
@@ -187,4 +214,45 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     return (INT_PTR)FALSE;
+}
+
+void Network_Loop(SOCKET s_socket, Direction send_data)
+{
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    int result = 0;
+
+    // send
+    WSABUF send_wsa_buf = {};
+    send_wsa_buf.buf = reinterpret_cast<char*>(&send_data);
+    send_wsa_buf.len = sizeof(send_data);
+
+    DWORD sent_size = 0;
+    result = ::WSASend(s_socket, &send_wsa_buf, 1, &sent_size, 0, nullptr, nullptr);
+    if (SOCKET_ERROR == result) {
+        int err = ::WSAGetLastError();
+        if (WSAEWOULDBLOCK != err) {
+            MessageBoxW(NULL, L"Error", L"WSASend", MB_OK | MB_ICONWARNING);
+            return;
+        }
+    }
+
+    // recv
+    int recv_data[2] = {};
+    WSABUF recv_wsa_buf = {};
+    recv_wsa_buf.buf = reinterpret_cast<char*>(recv_data);
+    recv_wsa_buf.len = sizeof(recv_data);
+
+    DWORD recv_size = 0;
+    DWORD recv_flag = 0;
+    result = ::WSARecv(s_socket, &recv_wsa_buf, 1, &recv_size, &recv_flag, nullptr, nullptr);
+    if (SOCKET_ERROR == result) {
+        int err = ::WSAGetLastError();
+        if (WSAEWOULDBLOCK != err) {
+            MessageBoxW(NULL, L"Error", L"WSARecv", MB_OK | MB_ICONWARNING);
+            return;
+        }
+    }
+
+    chess_pawn->Set_Pos(recv_data[1], recv_data[0]);
 }

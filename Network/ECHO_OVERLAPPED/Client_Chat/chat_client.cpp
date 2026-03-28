@@ -1,15 +1,14 @@
-﻿// SFML을 사용해서 윈도우를 생성하려면 기본적으로 다음 3개의 헤더파일이 필요하다.
+﻿// SFML Header
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 #include <SFML/System.hpp>
-
 
 #include <iostream>
 #include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
 const char* SERVER_IP = "127.0.0.1";
-constexpr short SERVER_PORT = 3500;
+constexpr short SERVER_PORT = 3000;
 constexpr int BUFFER_SIZE = 4096;
 
 char g_recv_buffer[BUFFER_SIZE];

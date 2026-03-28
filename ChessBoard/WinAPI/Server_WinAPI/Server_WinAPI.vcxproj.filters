@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ChessPawn">
+      <UniqueIdentifier>{764efd20-ebbd-4cc2-b6cc-a3b5e71f84a4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="NetworkHeader.h" />
+    <ClInclude Include="ChessPawn.h">
+      <Filter>ChessPawn</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="ChessPawn.cpp">
+      <Filter>ChessPawn</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

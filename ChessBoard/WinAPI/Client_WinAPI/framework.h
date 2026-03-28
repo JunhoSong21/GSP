@@ -18,3 +18,5 @@
 #include <ole2.h>
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
+
+#include <thread>

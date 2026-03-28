@@ -1,16 +1,24 @@
-﻿#include "ChessPawn.h"
+﻿#include "NetworkHeader.h"
+#include "ChessPawn.h"
 
-ChessPawn::ChessPawn()
+#include <conio.h> // _kbhit(), _getch()
+
+ChessPawn::ChessPawn() : posX(0), posY(0)
 {
 }
 
-ChessPawn::~ChessPawn()
+Direction ChessPawn::MoniteringKey()
 {
-}
+	if (GetAsyncKeyState(VK_UP) & 0x0001)
+		return Direction::UP;
+	if (GetAsyncKeyState(VK_DOWN) & 0x0001)
+		return Direction::DOWN;
+	if (GetAsyncKeyState(VK_LEFT) & 0x0001)
+		return Direction::LEFT;
+	if (GetAsyncKeyState(VK_RIGHT) & 0x0001)
+		return Direction::RIGHT;
 
-int ChessPawn::MoniteringKey()
-{
-	return 0;
+	return Direction::NONE;
 }
 
 void ChessPawn::DrawChessBoard(
@@ -38,7 +46,7 @@ void ChessPawn::DrawChessBoard(
 	graphics.SetCompositingMode(CompositingModeSourceOver);
 	Image* image = Image::FromFile(L"pawn-rb.png");
 
-	int width_downsize = 5;
+	int width_downsize = board_size / 50;
 
 	for (int row = 0; row < 8; ++row) {
 		for (int col = 0; col < 8; ++col) {
@@ -54,9 +62,30 @@ void ChessPawn::DrawChessBoard(
 
 			if (row == targetX && col == targetY) {
 				if (Ok == image->GetLastStatus()) {
-					graphics.DrawImage(image, x + width_downsize, y, cell_size - (width_downsize * 2), cell_size);
+					graphics.DrawImage(image,
+						x + width_downsize, y, cell_size - (width_downsize * 2), cell_size);
 				}
 			}
 		}
 	}
+
+	SetTextColor(hDC, RGB(0, 0, 0));
+	const wchar_t* text = L"Client 1";
+	TextOutW(hDC, 50, 20, text, lstrlenW(text));
+}
+
+int	ChessPawn::Get_Pos_X()
+{
+	return posX;
+}
+
+int	ChessPawn::Get_Pos_Y()
+{
+	return posY;
+}
+
+void ChessPawn::Set_Pos(int targetX, int targetY)
+{
+	posX = targetX;
+	posY = targetY;
 }
