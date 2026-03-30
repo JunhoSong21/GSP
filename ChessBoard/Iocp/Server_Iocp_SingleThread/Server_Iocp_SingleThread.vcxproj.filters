@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="IocpServer.cpp" />
+    <ClCompile Include="EXP_OVER.cpp">
+      <Filter>EXP_OVER</Filter>
+    </ClCompile>
+    <ClCompile Include="SESSION.cpp">
+      <Filter>SESSION</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="NetworkHeader.h" />
+    <ClInclude Include="EXP_OVER.h">
+      <Filter>EXP_OVER</Filter>
+    </ClInclude>
+    <ClInclude Include="SESSION.h">
+      <Filter>SESSION</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="EXP_OVER">
+      <UniqueIdentifier>{d1a87560-1bfe-464b-8ef9-203a73e811ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SESSION">
+      <UniqueIdentifier>{87424307-e52d-431f-b02d-0d3a9d3a3a44}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

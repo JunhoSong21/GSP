@@ -69,10 +69,10 @@ public:
 	SESSION() { exit(-1); }
 	SESSION(int id, SOCKET so) : _c_socket(so), _c_id(id)
 	{
-        _recv_over.m_wsa_buf.buf = _recv_mess;
-		_recv_over.m_wsa_buf.len = BUF_SIZE;
-		::ZeroMemory(&_recv_over.m_over, sizeof(_recv_over.m_over));
-		_recv_over.m_iotype = IO_RECV;
+        _recv_over._wsa_buf.buf = _recv_mess;
+		_recv_over._wsa_buf.len = BUF_SIZE;
+		::ZeroMemory(&_recv_over._over, sizeof(_recv_over._over));
+		_recv_over._iotype = IO_RECV;
 	}
 
 	~SESSION()
@@ -83,20 +83,20 @@ public:
 	void do_recv()
 	{
 		DWORD recv_flag = 0;
-		memset(&_recv_over.m_over, 0, sizeof(_recv_over.m_over));
-		WSARecv(_c_socket, &_recv_over.m_wsa_buf, 1, 0, &recv_flag, &_recv_over.m_over, nullptr);
+		memset(&_recv_over._over, 0, sizeof(_recv_over._over));
+		WSARecv(_c_socket, &_recv_over._wsa_buf, 1, 0, &recv_flag, &_recv_over._over, nullptr);
 	}
 
 	void do_send(int sender_id, int num_bytes, char* mess)
 	{
 		EXP_OVER* o = new EXP_OVER(IO_SEND);
-		o->m_buff[0] = num_bytes + 2;
-		o->m_buff[1] = sender_id;
-		::memcpy(o->m_buff + 2, mess, num_bytes);
+		o->_buff[0] = num_bytes + 2;
+		o->_buff[1] = sender_id;
+		::memcpy(o->_buff + 2, mess, num_bytes);
 		// set the actual length to send (header + payload)
-		o->m_wsa_buf.len = num_bytes + 2;
+		o->_wsa_buf.len = num_bytes + 2;
 
-		WSASend(_c_socket, &o->m_wsa_buf, 1, 0, 0, &o->m_over, nullptr);
+		WSASend(_c_socket, &o->_wsa_buf, 1, 0, 0, &o->_over, nullptr);
 	}
 };
 
@@ -123,9 +123,9 @@ int main()
     EXP_OVER* accept_over = new EXP_OVER(IO_ACCEPT);
 	SOCKET client_socket = WSASocketW(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 
-	AcceptEx(server, client_socket, accept_over->m_buff, 0,
+	AcceptEx(server, client_socket, accept_over->_buff, 0,
 		sizeof(SOCKADDR_IN) + 16, sizeof(sockaddr_in) + 16,
-		NULL, &accept_over->m_over);
+		NULL, &accept_over->_over);
 
 	for (int i = 1; ; ++i) {
 		DWORD num_bytes;
@@ -139,7 +139,7 @@ int main()
 
 		EXP_OVER* exp_over = reinterpret_cast<EXP_OVER*>(over);
 
-		switch (exp_over->m_iotype) {
+		switch (exp_over->_iotype) {
 		case IO_ACCEPT:
 		{
 			std::cout << "Accept Success" << std::endl;
@@ -158,9 +158,9 @@ int main()
 			// prepare next accept: allocate new EXP_OVER and new socket
 			accept_over = new EXP_OVER(IO_ACCEPT);
 			client_socket = WSASocketW(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-			AcceptEx(server, client_socket, accept_over->m_buff, 0,
+			AcceptEx(server, client_socket, accept_over->_buff, 0,
 				sizeof(SOCKADDR_IN) + 16, sizeof(sockaddr_in) + 16,
-				NULL, &accept_over->m_over);
+				NULL, &accept_over->_over);
 			break;
 		}
 		case IO_RECV:
@@ -168,10 +168,10 @@ int main()
 			std::cout << "Received Message" << std::endl;
 
 			int client_id = static_cast<int>(key);
-         std::cout << "Client[" << client_id << "] sent: " << clients[client_id]->_recv_over.m_buff << std::endl;
+         std::cout << "Client[" << client_id << "] sent: " << clients[client_id]->_recv_over._buff << std::endl;
 
 			for (auto& cl : clients)
-				cl.second->do_send(client_id, num_bytes, clients[client_id]->_recv_over.m_buff);
+				cl.second->do_send(client_id, num_bytes, clients[client_id]->_recv_over._buff);
 			clients[client_id]->do_recv();
 			break;
 		}
