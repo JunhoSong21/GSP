@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Server Overlapped Chat.vcxproj" />
+  <Project Path="Server Overlapped Chat.vcxproj" Id="7583a505-f970-4c06-8247-82f34bdae031" />
 </Solution>
