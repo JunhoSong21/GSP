@@ -5,9 +5,11 @@
 #pragma comment(lib, "ws2_32.lib")
 
 #include <atomic>
+#include <vector>
 #include <array>
 
 constexpr short SERVER_PORT = 3000;
+constexpr int BUF_SIZE		= 4096;
 
 inline void error_display(const wchar_t* msg, int err_no)
 {
@@ -30,4 +32,5 @@ enum class Direction {
 	DOWN = 2,
 	LEFT = 3,
 	RIGHT = 4,
+	LOGIN = 99,
 };

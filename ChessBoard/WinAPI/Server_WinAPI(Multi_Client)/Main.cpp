@@ -1,6 +1,12 @@
 #pragma once
 #include "NetworkHeader.h"
 #include "ChessPawn.h"
+#include "Session.h"
+
+std::vector<Session*> clients(10, nullptr);
+
+void CALLBACK Recv_Callback(DWORD error, DWORD bytes_transferred, LPWSAOVERLAPPED over, DWORD flags);
+void CALLBACK Send_Callback(DWORD error, DWORD bytes_transferred, LPWSAOVERLAPPED over, DWORD flags);
 
 int main()
 {
@@ -35,4 +41,77 @@ int main()
 		error_display(L"listen Failed", ::WSAGetLastError());
 		return 1;
 	}
+
+	u_long mode = 1;
+	ioctlsocket(s_socket, FIONBIO, &mode);
+
+	for (int i = 0; ;) {
+		//std::cout << "Accept Waiting..." << std::endl;
+		sockaddr_in c_addr{};
+		int addr_len = sizeof(c_addr);
+		SOCKET c_socket = ::WSAAccept(s_socket,
+			reinterpret_cast<sockaddr*>(&c_addr), &addr_len, NULL, NULL);
+		if (INVALID_SOCKET == c_socket) {
+			int err = ::WSAGetLastError();
+			if (WSAEWOULDBLOCK == err)
+				continue;
+			else {
+				error_display(L"WSAAccept Failed", ::WSAGetLastError());
+				return -1;
+			}
+		}
+
+		Session* session = new Session(c_socket, i);
+		clients[i] = session;
+
+		std::cout << "Client Connected. ID : " << i << std::endl;
+
+		clients[i]->Do_Recv();
+
+		++i;
+	}
+
+	closesocket(s_socket);
+	WSACleanup();
+}
+
+void CALLBACK Recv_Callback(DWORD error, DWORD bytes_transferred, LPWSAOVERLAPPED over, DWORD flags)
+{
+	Session* session = reinterpret_cast<Session*>(over);
+	int client_id = session->_id;
+
+	if (nullptr != clients[client_id]) {
+		Direction direction = *reinterpret_cast<Direction*>(&session->_buf[0]);
+
+		switch (direction) {
+		case Direction::UP:
+			clients[client_id]->chess_pawn.MoveUp();
+			break;
+		case Direction::DOWN:
+			clients[client_id]->chess_pawn.MoveDown();
+			break;
+		case Direction::LEFT:
+			clients[client_id]->chess_pawn.MoveLeft();
+			break;
+		case Direction::RIGHT:
+			clients[client_id]->chess_pawn.MoveRight();
+			break;
+		default:
+			break;
+		}
+	}
+
+	int x = clients[client_id]->chess_pawn.posX;
+	int y = clients[client_id]->chess_pawn.posY;
+
+	for (auto& cl : clients)
+		if (cl)
+			cl->Do_Send(client_id, bytes_transferred, x, y);
+
+	clients[client_id]->Do_Recv();
+}
+
+void CALLBACK Send_Callback(DWORD error, DWORD num_bytes, LPWSAOVERLAPPED over, DWORD flags)
+{
+	delete reinterpret_cast<Over_Exp*>(over);
 }
