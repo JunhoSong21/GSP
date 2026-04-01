@@ -70,15 +70,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
 
-    /*int recv_id = 0;
-    result = ::recv(s_socket, reinterpret_cast<char*>(&recv_id), sizeof(int), 0);
-    if (result > 0) my_id = recv_id;*/
-
+    bool opt = true;
+    ::setsockopt(s_socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&opt), sizeof(opt));
     u_long nonblocking_mode = 1;
     ioctlsocket(s_socket, FIONBIO, &nonblocking_mode);
 
-    /*if (-1 != my_id)
-        */
     ChessPawn* chess_pawn = new ChessPawn();
 
     MSG msg;
@@ -205,28 +201,18 @@ void Network_Loop(SOCKET s_socket, Direction send_data)
 
     DWORD sent_size = 0;
     result = ::WSASend(s_socket, &send_wsa_buf, 1, &sent_size, 0, nullptr, nullptr);
-    
+    //MessageBoxW(NULL, L"Error", L"WSASend", MB_OK | MB_ICONWARNING);
     // recv
     int recv_data[3] = {};
-    bool data_input = false;
+    WSABUF recv_wsa_buf = {};
+    recv_wsa_buf.buf = reinterpret_cast<char*>(recv_data);
+    recv_wsa_buf.len = sizeof(recv_data);
 
-    while (true) {
-        int temp_data[3] = {};
-        WSABUF recv_wsa_buf = {};
-        recv_wsa_buf.buf = reinterpret_cast<char*>(temp_data);
-        recv_wsa_buf.len = sizeof(temp_data);
-
-        DWORD recv_size = 0;
-        DWORD recv_flag = 0;
-        result = ::WSARecv(s_socket, &recv_wsa_buf, 1, &recv_size, &recv_flag, nullptr, nullptr);
-        if (0 == result && sizeof(temp_data) == recv_size) {
-            ::memcpy(recv_data, temp_data, sizeof(temp_data));
-            data_input = true;
-            break;
-        }
-    }
-
-    if (data_input) {
+    DWORD recv_size = 0;
+    DWORD recv_flag = 0;
+    result = ::WSARecv(s_socket, &recv_wsa_buf, 1, &recv_size, &recv_flag, nullptr, nullptr);
+        
+    if (0 == result && sizeof(recv_data) == recv_size) {
         if (chess_pawn_vec[recv_data[0]])
             chess_pawn_vec[recv_data[0]]->Set_Pos(recv_data[2], recv_data[1]);
         else {

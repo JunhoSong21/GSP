@@ -19,11 +19,14 @@ int main()
 		return 1;
 	}
 
-	SOCKET s_socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, 0);
+	SOCKET s_socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
 	if (SOCKET_ERROR == s_socket) {
 		error_display(L"s_socket", ::WSAGetLastError());
 		return -1;
 	}
+
+	bool opt = true;
+	::setsockopt(s_socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&opt), sizeof(opt));
 
 	sockaddr_in server_addr{};
 	server_addr.sin_family = AF_INET;
@@ -53,8 +56,10 @@ int main()
 			reinterpret_cast<sockaddr*>(&c_addr), &addr_len, NULL, NULL);
 		if (INVALID_SOCKET == c_socket) {
 			int err = ::WSAGetLastError();
-			if (WSAEWOULDBLOCK == err)
+			if (WSAEWOULDBLOCK == err) {
+				SleepEx(0, TRUE);
 				continue;
+			}
 			else {
 				error_display(L"WSAAccept Failed", ::WSAGetLastError());
 				return -1;
@@ -80,35 +85,45 @@ void CALLBACK Recv_Callback(DWORD error, DWORD bytes_transferred, LPWSAOVERLAPPE
 	Session* session = reinterpret_cast<Session*>(over);
 	int client_id = session->_id;
 
-	if (nullptr != clients[client_id]) {
-		Direction direction = *reinterpret_cast<Direction*>(&session->_buf[0]);
+	if (bytes_transferred != 0) {
+		if (nullptr != clients[client_id]) {
+			Direction direction = *reinterpret_cast<Direction*>(&session->_buf[0]);
 
-		switch (direction) {
-		case Direction::UP:
-			clients[client_id]->chess_pawn.MoveUp();
-			break;
-		case Direction::DOWN:
-			clients[client_id]->chess_pawn.MoveDown();
-			break;
-		case Direction::LEFT:
-			clients[client_id]->chess_pawn.MoveLeft();
-			break;
-		case Direction::RIGHT:
-			clients[client_id]->chess_pawn.MoveRight();
-			break;
-		default:
-			break;
+			switch (direction) {
+			case Direction::UP:
+				clients[client_id]->chess_pawn.MoveUp();
+				break;
+			case Direction::DOWN:
+				clients[client_id]->chess_pawn.MoveDown();
+				break;
+			case Direction::LEFT:
+				clients[client_id]->chess_pawn.MoveLeft();
+				break;
+			case Direction::RIGHT:
+				clients[client_id]->chess_pawn.MoveRight();
+				break;
+			default:
+				break;
+			}
 		}
+
+		int x = clients[client_id]->chess_pawn.posX;
+		int y = clients[client_id]->chess_pawn.posY;
+
+		std::cout << "Client " << client_id << " " << x << y << std::endl;
+
+		for (auto& cl : clients)
+			if (cl)
+				cl->Do_Send(client_id, bytes_transferred, x, y);
+
+		clients[client_id]->Do_Recv();
 	}
-
-	int x = clients[client_id]->chess_pawn.posX;
-	int y = clients[client_id]->chess_pawn.posY;
-
-	for (auto& cl : clients)
-		if (cl)
-			cl->Do_Send(client_id, bytes_transferred, x, y);
-
-	clients[client_id]->Do_Recv();
+	else if (bytes_transferred == 0) {
+		std::cout << "Client Disconnected. ID : " << client_id << std::endl;
+		clients[client_id] = nullptr;
+		delete session;
+		return;
+	}
 }
 
 void CALLBACK Send_Callback(DWORD error, DWORD num_bytes, LPWSAOVERLAPPED over, DWORD flags)
