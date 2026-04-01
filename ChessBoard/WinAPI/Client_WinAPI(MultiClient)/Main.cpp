@@ -20,6 +20,7 @@ std::vector<ChessPawn*> chess_pawn_vec(10, nullptr);
 ULONG_PTR gdiplusToken;
 
 void Network_Loop(SOCKET s_socket, Direction send_data);
+void Network_Loop_Recv(SOCKET s_socket);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
@@ -79,6 +80,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     MSG msg;
 
+    Direction direction = Direction::NONE;
+    Network_Loop(s_socket, direction);
+    Network_Loop_Recv(s_socket);
+    InvalidateRect(hWnd, NULL, TRUE);
+    UpdateWindow(hWnd);
+
     while (true) {
         if (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (WM_QUIT == msg.message)
@@ -88,8 +95,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             ::DispatchMessageW(&msg);
         }
         
-        Direction direction = chess_pawn->MoniteringKey();
-        Network_Loop(s_socket, direction);
+        direction = chess_pawn->MoniteringKey();
+        if (direction != Direction::NONE) {
+            Network_Loop(s_socket, direction);
+            direction = Direction::NONE;
+        }
+        Network_Loop_Recv(s_socket);
         InvalidateRect(hWnd, NULL, TRUE);
         UpdateWindow(hWnd);
     }
@@ -162,7 +173,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         50 + (i * 250), 50, 200, chess_pawn_vec[i]->Get_Pos_X(), chess_pawn_vec[i]->Get_Pos_Y());
                 else
                     chess_pawn_vec[i]->DrawChessBoard(memDC,
-                        50 + (i * 250), 350, 200, chess_pawn_vec[i]->Get_Pos_X(), chess_pawn_vec[i]->Get_Pos_Y());
+                        50 + ((i - 5) * 250), 350, 200, chess_pawn_vec[i]->Get_Pos_X(), chess_pawn_vec[i]->Get_Pos_Y());
         }
 
         BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
@@ -201,23 +212,40 @@ void Network_Loop(SOCKET s_socket, Direction send_data)
 
     DWORD sent_size = 0;
     result = ::WSASend(s_socket, &send_wsa_buf, 1, &sent_size, 0, nullptr, nullptr);
-    //MessageBoxW(NULL, L"Error", L"WSASend", MB_OK | MB_ICONWARNING);
-    // recv
-    int recv_data[3] = {};
-    WSABUF recv_wsa_buf = {};
-    recv_wsa_buf.buf = reinterpret_cast<char*>(recv_data);
-    recv_wsa_buf.len = sizeof(recv_data);
+}
 
-    DWORD recv_size = 0;
-    DWORD recv_flag = 0;
-    result = ::WSARecv(s_socket, &recv_wsa_buf, 1, &recv_size, &recv_flag, nullptr, nullptr);
-        
-    if (0 == result && sizeof(recv_data) == recv_size) {
-        if (chess_pawn_vec[recv_data[0]])
-            chess_pawn_vec[recv_data[0]]->Set_Pos(recv_data[2], recv_data[1]);
+void Network_Loop_Recv(SOCKET s_socket)
+{
+    while (true) {
+        // recv
+        int recv_data[3] = {};
+        WSABUF recv_wsa_buf = {};
+        recv_wsa_buf.buf = reinterpret_cast<char*>(recv_data);
+        recv_wsa_buf.len = sizeof(recv_data);
+
+        DWORD recv_size = 0;
+        DWORD recv_flag = 0;
+        int result = ::WSARecv(s_socket, &recv_wsa_buf, 1, &recv_size, &recv_flag, nullptr, nullptr);
+
+
+        if (0 == result && sizeof(recv_data) == recv_size) {
+            if (recv_data[1] == -1) {
+                delete  chess_pawn_vec[recv_data[0]];
+                chess_pawn_vec[recv_data[0]] = nullptr;
+                return;
+            }
+
+            if (chess_pawn_vec[recv_data[0]])
+                chess_pawn_vec[recv_data[0]]->Set_Pos(recv_data[2], recv_data[1]);
+            else {
+                chess_pawn_vec[recv_data[0]] = new ChessPawn();
+                chess_pawn_vec[recv_data[0]]->Set_Pos(recv_data[2], recv_data[1]);
+            }
+        }
         else {
-            chess_pawn_vec[recv_data[0]] = new ChessPawn();
-            chess_pawn_vec[recv_data[0]]->Set_Pos(recv_data[2], recv_data[1]);
+            int err = ::WSAGetLastError();
+            if (err == WSAEWOULDBLOCK)
+                break;
         }
     }
 }

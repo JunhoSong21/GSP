@@ -48,7 +48,7 @@ int main()
 	u_long mode = 1;
 	ioctlsocket(s_socket, FIONBIO, &mode);
 
-	for (int i = 0; ;) {
+	while(true) {
 		//std::cout << "Accept Waiting..." << std::endl;
 		sockaddr_in c_addr{};
 		int addr_len = sizeof(c_addr);
@@ -66,14 +66,18 @@ int main()
 			}
 		}
 
-		Session* session = new Session(c_socket, i);
-		clients[i] = session;
+		for (int i = 0; i < clients.size(); ++i) {
+			if (nullptr == clients[i]) {
+				Session* session = new Session(c_socket, i);
+				clients[i] = session;
 
-		std::cout << "Client Connected. ID : " << i << std::endl;
+				std::cout << "Client Connected. ID : " << i << std::endl;
 
-		clients[i]->Do_Recv();
+				clients[i]->Do_Recv();
 
-		++i;
+				break;
+			}
+		}
 	}
 
 	closesocket(s_socket);
@@ -110,7 +114,7 @@ void CALLBACK Recv_Callback(DWORD error, DWORD bytes_transferred, LPWSAOVERLAPPE
 		int x = clients[client_id]->chess_pawn.posX;
 		int y = clients[client_id]->chess_pawn.posY;
 
-		std::cout << "Client " << client_id << " " << x << y << std::endl;
+		//std::cout << "Client " << client_id << " " << x << y << std::endl;
 
 		for (auto& cl : clients)
 			if (cl)
@@ -120,6 +124,9 @@ void CALLBACK Recv_Callback(DWORD error, DWORD bytes_transferred, LPWSAOVERLAPPE
 	}
 	else if (bytes_transferred == 0) {
 		std::cout << "Client Disconnected. ID : " << client_id << std::endl;
+		for (auto& cl : clients)
+			if (cl)
+				cl->Do_Send(client_id, bytes_transferred, -1, -1);
 		clients[client_id] = nullptr;
 		delete session;
 		return;

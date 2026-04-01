@@ -69,9 +69,9 @@ void ChessPawn::DrawChessBoard(
 		}
 	}
 
-	SetTextColor(hDC, RGB(0, 0, 0));
+	/*SetTextColor(hDC, RGB(0, 0, 0));
 	const wchar_t* text = L"Client 1";
-	TextOutW(hDC, 50, 20, text, lstrlenW(text));
+	TextOutW(hDC, 50, 20, text, lstrlenW(text));*/
 }
 
 int	ChessPawn::Get_Pos_X()
