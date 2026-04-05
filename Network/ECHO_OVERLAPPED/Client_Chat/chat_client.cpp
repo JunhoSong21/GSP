@@ -72,7 +72,7 @@ void CALLBACK send_callback(DWORD error, DWORD bytes_transferred, LPWSAOVERLAPPE
         error_display(L"데이터 전송 실패", WSAGetLastError());
         return;
     }
-    std::cout << "Sent to server: SIZE: " << bytes_transferred << std::endl;
+    //std::cout << "Sent to server: SIZE: " << bytes_transferred << std::endl;
 }
 
 void recv_from_server()
