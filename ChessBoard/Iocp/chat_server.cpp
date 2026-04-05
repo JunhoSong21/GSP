@@ -72,6 +72,7 @@ public:
 		EXP_OVER* o = new EXP_OVER(IO_SEND);
 		o->m_buff[0] = num_bytes + 2;
 		o->m_buff[1] = sender_id;
+		o->m_wsa.len = o->m_buff[0];
 		memcpy(o->m_buff + 2, mess, num_bytes);
 		WSASend(client, &o->m_wsa, 1, 0, 0, &o->m_over, nullptr);
 	}
@@ -99,7 +100,7 @@ int main()
 		sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16, 
 		NULL, &accept_over.m_over);
 
-	for (int i = 1;;++i) {
+	for (int i = 1;;) {
 		DWORD num_bytes;
 		ULONG_PTR key;
 		LPOVERLAPPED over;
@@ -115,6 +116,8 @@ int main()
 			CreateIoCompletionPort((HANDLE)client_socket, h_iocp, i, 0);
 			clients.try_emplace(i, i, client_socket);
 			clients[i].do_recv();
+			++i;
+
 			client_socket = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 			AcceptEx(server, client_socket, &accept_over.m_buff, 0,
 				sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16,
