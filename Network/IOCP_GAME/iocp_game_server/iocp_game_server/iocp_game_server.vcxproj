@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{97ffa5cb-f8d7-41ec-a8e2-96ea6d08d1a2}</ProjectGuid>
-    <RootNamespace>ServerIocpSingleThreadMultiClient</RootNamespace>
+    <ProjectGuid>{a733a416-19c1-44c1-8717-31930fe8979c}</ProjectGuid>
+    <RootNamespace>iocpgameserver</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -123,13 +123,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="NetworkHeader.h" />
-    <ClInclude Include="Protocol.h" />
-    <ClInclude Include="Session.h" />
+    <ClCompile Include="game_server.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Session.cpp" />
+    <ClInclude Include="protocol.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
