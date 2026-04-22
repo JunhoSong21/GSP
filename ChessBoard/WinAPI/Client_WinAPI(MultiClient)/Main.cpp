@@ -227,7 +227,6 @@ void Network_Loop_Recv(SOCKET s_socket)
         DWORD recv_flag = 0;
         int result = ::WSARecv(s_socket, &recv_wsa_buf, 1, &recv_size, &recv_flag, nullptr, nullptr);
 
-
         if (0 == result && sizeof(recv_data) == recv_size) {
             if (recv_data[1] == -1) {
                 delete  chess_pawn_vec[recv_data[0]];
