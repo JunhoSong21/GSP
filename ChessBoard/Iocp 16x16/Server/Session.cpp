@@ -114,6 +114,25 @@ void Session::Send_Move_Player(uint64_t player_id)
 	Send_Process(packet.size, reinterpret_cast<char*>(&packet));
 }
 
+void Session::Send_Remove_Player(uint64_t player_id)
+{
+	S2C_Remove_Player packet{};
+	packet.size = sizeof(S2C_Remove_Player);
+	packet.type = S2C_REMOVE_PLAYER;
+
+	packet.player_id = player_id;
+
+	_visible_mutex.lock();
+	if (0 == _visible_players.count(player_id)) {
+		_visible_mutex.unlock();
+		return;
+	}
+	_visible_players.erase(player_id);
+	_visible_mutex.unlock();
+
+	Send_Process(packet.size, reinterpret_cast<char*>(&packet));
+}
+
 void Session::Recv_Process()
 {
 	DWORD recv_flag = 0;
@@ -125,14 +144,14 @@ void Session::Recv_Process()
 
 bool Session::Process_Packet(unsigned char* p)
 {
-	PACKET_TYPE type = *reinterpret_cast<PACKET_TYPE*>(&p[1]);
+	PACKET_TYPE type = *reinterpret_cast<PACKET_TYPE*>(p + sizeof(uint16_t));
 
 	switch (type) {
 	case C2S_LOGIN: {
 		C2S_Login* packet = reinterpret_cast<C2S_Login*>(p);
 
 		::strncpy_s(_username, packet->user_name, MAX_NAME_LEN);
-		std::cout << "Player[" << _c_id << "] login as " << _username << std::endl;
+		std::cout << "Client [" << _c_id << "] login as " << _username << std::endl;
 
 		Send_Avatar_Info();
 		_state = CLIENT_STATE::INGAME;
@@ -144,8 +163,8 @@ bool Session::Process_Packet(unsigned char* p)
 				continue;
 			if (_c_id == player->_c_id)
 				continue;
-			//if (false == Is_Visible())
-			//	continue; >> 시야 리스트 반영 여부
+			if (false == Is_Visible(player->_posX, player->_posY))
+				continue;
 			if (CLIENT_STATE::INGAME != player->_state)
 				continue;
 
@@ -163,12 +182,12 @@ bool Session::Process_Packet(unsigned char* p)
 
 		switch (direction) {
 		case UP:
-			if (_posY < WORLD_HEIGHT)
-				++_posY;
-			break;
-		case DOWN:
 			if (_posY > 0)
 				--_posY;
+			break;
+		case DOWN:
+			if (_posY < WORLD_HEIGHT)
+				++_posY;
 			break;
 		case LEFT:
 			if (_posX > 0)
@@ -176,11 +195,12 @@ bool Session::Process_Packet(unsigned char* p)
 			break;
 		case RIGHT:
 			if (_posX < WORLD_WIDTH)
-				++_posY;
+				++_posX;
 			break;
 		}
-
-		/*for (auto& client : clients) {
+		
+		std::unordered_set<uint64_t> new_view;
+		for (auto& client : clients) {
 			std::shared_ptr<Session> player = client.second.load();
 			if (nullptr == player)
 				continue;
@@ -188,23 +208,42 @@ bool Session::Process_Packet(unsigned char* p)
 				continue;
 			if (player->_state != CLIENT_STATE::INGAME)
 				continue;
-			
-		}*/ // 시야 처리
+			if (Is_Visible(player->_posX, player->_posY))
+				new_view.insert(player->_c_id);
+		}
 
 		Send_Move_Player(_c_id);
 
-		for (auto& client : clients) {
-			std::shared_ptr<Session> player = client.second.load();
-			if (nullptr == player)
-				continue;
-			if (player->_c_id == _c_id)
-				continue;
+		std::unordered_set<uint64_t> old_view = _visible_players;
+		for (uint64_t id : new_view) {
+			if (0 == old_view.count(id)) {
+				Send_Add_Player(id);
+				std::shared_ptr<Session> player = clients[id].load();
+				if (nullptr == player)
+					continue;
+				player->Send_Add_Player(_c_id);
+			}
+			else {
+				std::shared_ptr<Session> player = clients[id].load();
+				if (nullptr == player)
+					continue;
+				player->Send_Move_Player(_c_id);
+			}
+		}
 
-			player->Send_Move_Player(_c_id);
+		for (uint64_t id : old_view) {
+			if (0 == new_view.count(id)) {
+				Send_Remove_Player(id);
+				std::shared_ptr<Session> player = clients[id].load();
+				if (nullptr == player)
+					continue;
+				player->Send_Remove_Player(_c_id);
+			}
 		}
 
 		break;
 	}
+
 	default:
 		std::cout << "Unknown Packet Type from Player[" << _c_id << "]" << std::endl;
 		return false;
@@ -212,4 +251,10 @@ bool Session::Process_Packet(unsigned char* p)
 	}
 
 	return true;
+}
+
+bool Session::Is_Visible(short x, short y)
+{
+	return abs(_posX - x) <= VIEW_RANGE
+		&& abs(_posY - y) <= VIEW_RANGE;
 }

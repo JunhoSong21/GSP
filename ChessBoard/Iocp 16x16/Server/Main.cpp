@@ -80,7 +80,7 @@ void worker_thread()
 				uint64_t index = static_cast<uint64_t>(key);
 
 				std::cout << "Client [" << index << "] Disconnect" << std::endl;
-				// TODO : Disconnect Client
+				Disconnect(key);
 				continue;
 			}
 			else {
@@ -103,7 +103,7 @@ void worker_thread()
 
 			if (MAX_PLAYER <= clients.size()) {
 				std::cout << "No more player can be accepted" << std::endl;
-				//Send_Login_Fail();
+				//Send_Login_Fail(c_socket, "Login Fail");
 				closesocket(accept_over->m_c_socket);
 			}
 			else {
@@ -142,14 +142,17 @@ void worker_thread()
 
 			std::shared_ptr<Session> client = clients[key];
 			if (nullptr == client) {
-				std::cout << "Session not found Client[" << index << "]" << std::endl;
+				std::cout << "Session not found Client [" << index << "]" << std::endl;
 				break;
 			}
 
 			unsigned char* p = reinterpret_cast<unsigned char*>(over->m_buf);
 			int data_size = num_bytes + client->_prev_recv;
 			while (data_size > 0) {
-				int packet_size = p[0];
+				if (data_size < sizeof(uint16_t))
+					break;
+
+				uint16_t packet_size = *reinterpret_cast<uint16_t*>(p);
 				if (packet_size > data_size)
 					break;
 
@@ -202,7 +205,7 @@ void Send_Login_Fail(SOCKET c_socket, const char* msg)
 
 void Disconnect(uint64_t key)
 {
-	std::cout << "Client[" << key << "] Disconnect" << std::endl;
+	std::cout << "Client [" << key << "] Disconnect" << std::endl;
 
 	std::shared_ptr<Session> client = clients[key].load();
 	if (client) {

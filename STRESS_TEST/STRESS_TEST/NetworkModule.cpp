@@ -52,8 +52,8 @@ struct CLIENT {
 	SOCKET client_socket;
 	OverlappedEx recv_over;
 	unsigned char packet_buf[MAX_PACKET_SIZE];
-	int prev_packet_data;
-	int curr_packet_size;
+	uint16_t prev_packet_data;
+	uint16_t curr_packet_size;
 	high_resolution_clock::time_point last_move_time;
 };
 
@@ -106,8 +106,8 @@ void DisconnectClient(int ci)
 
 void SendPacket(int cl, void* packet)
 {
-	int psize = reinterpret_cast<unsigned char*>(packet)[0];
-	int ptype = reinterpret_cast<unsigned char*>(packet)[1];
+	uint16_t psize = *reinterpret_cast<unsigned char*>(packet);
+	//int ptype = reinterpret_cast<unsigned char*>(packet)[1];
 	OverlappedEx* over = new OverlappedEx;
 	over->event_type = OP_SEND;
 	memcpy(over->IOCP_buf, packet, psize);
@@ -126,16 +126,16 @@ void SendPacket(int cl, void* packet)
 
 void ProcessPacket(int ci, unsigned char packet[])
 {
-	switch (packet[1]) {
+	switch (packet[2]) {
 	case S2C_LOGIN_RESULT:
 	{
-		S2C_LoginResult* p = reinterpret_cast<S2C_LoginResult*>(packet);
+		S2C_Login_Result* p = reinterpret_cast<S2C_Login_Result*>(packet);
 		if (p->success) {
 
 			C2S_Login l_packet;
 
 			int temp = num_connections;
-			sprintf_s(l_packet.username, "%d", temp);
+			sprintf_s(l_packet.user_name, "%d", temp);
 			l_packet.size = sizeof(l_packet);
 			l_packet.type = C2S_LOGIN;
 			SendPacket(ci, &l_packet);
@@ -146,9 +146,9 @@ void ProcessPacket(int ci, unsigned char packet[])
 		}
 	}
 	case S2C_MOVE_PLAYER: {
-		S2C_MovePlayer* move_packet = reinterpret_cast<S2C_MovePlayer*>(packet);
-		if (move_packet->playerId < MAX_CLIENTS) {
-			int my_id = client_map[move_packet->playerId];
+		S2C_Move_Player* move_packet = reinterpret_cast<S2C_Move_Player*>(packet);
+		if (move_packet->player_id < MAX_CLIENTS) {
+			int my_id = client_map[move_packet->player_id];
 			if (-1 != my_id) {
 				g_clients[my_id].x = move_packet->x;
 				g_clients[my_id].y = move_packet->y;
@@ -164,16 +164,18 @@ void ProcessPacket(int ci, unsigned char packet[])
 		}
 	}
 					   break;
-	case S2C_ADD_PLAYER: break;
-	case S2C_REMOVE_PLAYER: break;
+	case S2C_ADD_PLAYER:
+		break;
+	case S2C_REMOVE_PLAYER:
+		break;
 	case S2C_AVATAR_INFO:
 	{
 		g_clients[ci].connected = true;
 		active_clients++;
-		S2C_AvatarInfo* login_packet = reinterpret_cast<S2C_AvatarInfo*>(packet);
+		S2C_Avatar_Info* login_packet = reinterpret_cast<S2C_Avatar_Info*>(packet);
 		int my_id = ci;
-		client_map[login_packet->playerId] = my_id;
-		g_clients[my_id].id = login_packet->playerId;
+		client_map[login_packet->player_id] = my_id;
+		g_clients[my_id].id = login_packet->player_id;
 		g_clients[my_id].x = login_packet->x;
 		g_clients[my_id].y = login_packet->y;
 
@@ -215,10 +217,10 @@ void Worker_Thread()
 			//std::cout << "RECV from Client :" << ci;
 			//std::cout << "  IO_SIZE : " << io_size << std::endl;
 			unsigned char* buf = g_clients[ci].recv_over.IOCP_buf;
-			unsigned psize = g_clients[ci].curr_packet_size;
+			uint16_t psize = g_clients[ci].curr_packet_size;
 			unsigned pr_size = g_clients[ci].prev_packet_data;
 			while (io_size > 0) {
-				if (0 == psize) psize = buf[0];
+				if (0 == psize) psize = *reinterpret_cast<uint16_t*>(buf);
 				if (io_size + pr_size >= psize) {
 					// 지금 패킷 완성 가능
 					unsigned char packet[MAX_PACKET_SIZE];
@@ -311,7 +313,7 @@ void Adjust_Number_Of_Client()
 	SOCKADDR_IN ServerAddr;
 	ZeroMemory(&ServerAddr, sizeof(SOCKADDR_IN));
 	ServerAddr.sin_family = AF_INET;
-	ServerAddr.sin_port = htons(PORT);
+	ServerAddr.sin_port = htons(SERVER_PORT);
 	ServerAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 
@@ -360,10 +362,10 @@ void Test_Thread()
 			my_packet.size = sizeof(my_packet);
 			my_packet.type = C2S_MOVE;
 			switch (rand() % 4) {
-			case 0: my_packet.dir = UP; break;
-			case 1: my_packet.dir = DOWN; break;
-			case 2: my_packet.dir = LEFT; break;
-			case 3: my_packet.dir = RIGHT; break;
+			case 0: my_packet.direction = UP; break;
+			case 1: my_packet.direction = DOWN; break;
+			case 2: my_packet.direction = LEFT; break;
+			case 3: my_packet.direction = RIGHT; break;
 			}
 			my_packet.move_time = static_cast<unsigned>(duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count());
 			SendPacket(i, &my_packet);

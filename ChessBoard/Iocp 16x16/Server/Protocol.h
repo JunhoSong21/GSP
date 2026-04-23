@@ -5,7 +5,7 @@ constexpr short SERVER_PORT = 3000;
 constexpr int WORLD_WIDTH = 400;
 constexpr int WORLD_HEIGHT = 400;
 constexpr int MAX_NAME_LEN = 20;
-constexpr int MAX_PLAYER = 5000;
+constexpr int MAX_PLAYER = 20000;
 
 enum PACKET_TYPE : uint8_t {
 	// C2S
@@ -21,6 +21,7 @@ enum PACKET_TYPE : uint8_t {
 };
 
 enum DIRECTION : uint8_t {
+	NONE,
 	UP,
 	DOWN,
 	LEFT,

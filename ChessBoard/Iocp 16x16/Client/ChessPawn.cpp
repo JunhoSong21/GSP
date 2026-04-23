@@ -20,11 +20,6 @@ DIRECTION ChessPawn::MoniteringKey()
 	return DIRECTION::NONE;
 }
 
-void ChessPawn::DrawChessBoard()
-{
-	using namespace Gdiplus;
-}
-
 int ChessPawn::Get_PosX()
 {
 	return _posX;

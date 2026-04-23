@@ -5,7 +5,6 @@ public:
 	ChessPawn();
 
 	DIRECTION MoniteringKey();
-	void DrawChessBoard();
 
 	int Get_PosX();
 	int Get_PosY();
@@ -18,5 +17,6 @@ private:
 
 public:
 	uint64_t id;
+	char username[MAX_NAME_LEN];
 
 };

@@ -52,6 +52,9 @@ public:
 
 	int				_move_time;
 
+	std::unordered_set<uint64_t> _visible_players;
+	std::mutex _visible_mutex;
+
 public:
 	Session(SOCKET socket, uint64_t id);
 	~Session();
@@ -64,10 +67,12 @@ public:
 	void Send_Avatar_Info();
 	void Send_Add_Player(uint64_t player_id);
 	void Send_Move_Player(uint64_t player_id);
+	void Send_Remove_Player(uint64_t player_id);
 
 	// Recv
 	void Recv_Process();
 
 	bool Process_Packet(unsigned char* p);
 
+	bool Is_Visible(short x, short y);
 };

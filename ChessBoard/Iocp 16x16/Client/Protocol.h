@@ -30,12 +30,6 @@ enum DIRECTION : uint8_t {
 
 #pragma pack(push, 1)
 
-// Packet Header
-struct PacketHeader {
-	uint16_t	size;
-	PACKET_TYPE type;
-};
-
 // C2S
 struct C2S_Login {
 	uint16_t	size;
