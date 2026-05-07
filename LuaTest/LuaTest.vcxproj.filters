@@ -13,39 +13,40 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="헤더 파일\LUA">
+      <UniqueIdentifier>{462f6ccd-c147-474c-82fe-c21d7b518a70}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="npc_ai_lua.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="npc.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="npc_wakeup.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="view_server.cpp">
+    <ClCompile Include="lua_test.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="protocol.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
+    <Library Include="lua55.lib">
+      <Filter>리소스 파일</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="include\lauxlib.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\LUA</Filter>
     </ClInclude>
     <ClInclude Include="include\lua.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\LUA</Filter>
     </ClInclude>
     <ClInclude Include="include\lua.hpp">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\LUA</Filter>
     </ClInclude>
     <ClInclude Include="include\luaconf.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\LUA</Filter>
     </ClInclude>
     <ClInclude Include="include\lualib.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>헤더 파일\LUA</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dragon.lua">
+      <Filter>리소스 파일</Filter>
+    </None>
   </ItemGroup>
 </Project>
