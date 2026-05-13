@@ -13,6 +13,7 @@
 #include <queue>
 #include <array>
 #include <memory>
+#include <string>
 
 using namespace std;
 using namespace chrono;
@@ -27,13 +28,14 @@ const static int MAX_BUFF_SIZE = 255;
 
 #pragma comment (lib, "ws2_32.lib")
 
-#include "..\..\SERVER\SERVER\protocol.h"
+#include "..\..\SERVER\SERVER\protocol_2026.h"
 
 HANDLE g_hiocp;
-
+string g_server_ip = "127.0.0.1";
 enum OPTYPE { OP_SEND, OP_RECV, OP_DO_MOVE };
 
 high_resolution_clock::time_point last_connect_time;
+high_resolution_clock::time_point test_start_time;
 
 struct OverlappedEx {
 	WSAOVERLAPPED over;
@@ -69,6 +71,11 @@ vector <thread*> worker_threads;
 thread test_thread;
 
 float point_cloud[MAX_TEST * 2];
+
+int get_elapsed_time_ms()
+{
+	return static_cast<int>(duration_cast<milliseconds>(high_resolution_clock::now() - test_start_time).count());
+}
 
 // 나중에 NPC까지 추가 확장 용
 struct ALIEN {
@@ -127,46 +134,48 @@ void SendPacket(int cl, void* packet)
 void ProcessPacket(int ci, unsigned char packet[])
 {
 	switch (packet[1]) {
-	case SC_MOVE_OBJECT: {
-		SC_MOVE_OBJECT_PACKET* move_packet = reinterpret_cast<SC_MOVE_OBJECT_PACKET*>(packet);
-		if (move_packet->id < MAX_CLIENTS) {
-			int my_id = client_map[move_packet->id];
+	case S2C_MOVE_PLAYER: {
+		S2C_MovePlayer* move_packet = reinterpret_cast<S2C_MovePlayer*>(packet);
+		if (move_packet->playerId < MAX_CLIENTS) {
+			int my_id = client_map[move_packet->playerId];
 			if (-1 != my_id) {
 				g_clients[my_id].x = move_packet->x;
 				g_clients[my_id].y = move_packet->y;
 			}
 			if (ci == my_id) {
 				if (0 != move_packet->move_time) {
-					auto d_ms = duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count() - move_packet->move_time;
+					int d_ms = get_elapsed_time_ms() - move_packet->move_time;
+					if (d_ms < 0)
+						d_ms = 0;
 
-					if (global_delay < d_ms) global_delay++;
-					else if (global_delay > d_ms) global_delay--;
+					if (global_delay < d_ms)
+						global_delay++;
+					else if (global_delay > d_ms)
+						global_delay--;
 				}
 			}
 		}
 	}
-					   break;
-	case SC_ADD_OBJECT: break;
-	case SC_REMOVE_OBJECT: break;
-	case SC_CHAT: break;
-	case SC_LOGIN_INFO:
+	break;
+
+	case S2C_ADD_PLAYER:
+		break;
+	case S2C_REMOVE_PLAYER:
+		break;
+	case S2C_AVATAR_INFO:
 	{
 		g_clients[ci].connected = true;
 		active_clients++;
-		SC_LOGIN_INFO_PACKET* login_packet = reinterpret_cast<SC_LOGIN_INFO_PACKET*>(packet);
+		S2C_AvatarInfo* login_packet = reinterpret_cast<S2C_AvatarInfo*>(packet);
 		int my_id = ci;
-		client_map[login_packet->id] = my_id;
-		g_clients[my_id].id = login_packet->id;
+		client_map[login_packet->playerId] = my_id;
+		g_clients[my_id].id = login_packet->playerId;
 		g_clients[my_id].x = login_packet->x;
 		g_clients[my_id].y = login_packet->y;
-
-		//cs_packet_teleport t_packet;
-		//t_packet.size = sizeof(t_packet);
-		//t_packet.type = CS_TELEPORT;
-		//SendPacket(my_id, &t_packet);
 	}
 	break;
-	default: MessageBox(hWnd, L"Unknown Packet Type", L"ERROR", 0);
+	default:
+		MessageBox(hWnd, L"Unknown Packet Type", L"ERROR", 0);
 		while (true);
 	}
 }
@@ -183,12 +192,14 @@ void Worker_Thread()
 		int client_id = static_cast<int>(ci);
 		if (FALSE == ret) {
 			int err_no = WSAGetLastError();
-			if (64 == err_no) DisconnectClient(client_id);
+			if (64 == err_no)
+				DisconnectClient(client_id);
 			else {
 				// error_display("GQCS : ", WSAGetLastError());
 				DisconnectClient(client_id);
 			}
-			if (OP_SEND == over->event_type) delete over;
+			if (OP_SEND == over->event_type)
+				delete over;
 		}
 		if (0 == io_size) {
 			DisconnectClient(client_id);
@@ -294,8 +305,8 @@ void Adjust_Number_Of_Client()
 	SOCKADDR_IN ServerAddr;
 	ZeroMemory(&ServerAddr, sizeof(SOCKADDR_IN));
 	ServerAddr.sin_family = AF_INET;
-	ServerAddr.sin_port = htons(PORT_NUM);
-	ServerAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	ServerAddr.sin_port = htons(PORT);
+	ServerAddr.sin_addr.s_addr = inet_addr(g_server_ip.c_str());
 
 
 	int Result = WSAConnect(g_clients[num_connections].client_socket, (sockaddr*)&ServerAddr, sizeof(ServerAddr), NULL, NULL, NULL, NULL);
@@ -314,12 +325,12 @@ void Adjust_Number_Of_Client()
 	DWORD recv_flag = 0;
 	CreateIoCompletionPort(reinterpret_cast<HANDLE>(g_clients[num_connections].client_socket), g_hiocp, num_connections, 0);
 
-	CS_LOGIN_PACKET l_packet;
+	C2S_Login l_packet;
 
 	int temp = num_connections;
-	sprintf_s(l_packet.name, "%d", temp);
+	sprintf_s(l_packet.username, "%d", temp);
 	l_packet.size = sizeof(l_packet);
-	l_packet.type = CS_LOGIN;
+	l_packet.type = C2S_LOGIN;
 	SendPacket(num_connections, &l_packet);
 
 
@@ -348,16 +359,16 @@ void Test_Thread()
 			if (false == g_clients[i].connected) continue;
 			if (g_clients[i].last_move_time + 1s > high_resolution_clock::now()) continue;
 			g_clients[i].last_move_time = high_resolution_clock::now();
-			CS_MOVE_PACKET my_packet;
+			C2S_Move my_packet;
 			my_packet.size = sizeof(my_packet);
-			my_packet.type = CS_MOVE;
+			my_packet.type = C2S_MOVE;
 			switch (rand() % 4) {
-			case 0: my_packet.direction = 0; break;
-			case 1: my_packet.direction = 1; break;
-			case 2: my_packet.direction = 2; break;
-			case 3: my_packet.direction = 3; break;
+			case 0: my_packet.dir = UP; break;
+			case 1: my_packet.dir = DOWN; break;
+			case 2: my_packet.dir = LEFT; break;
+			case 3: my_packet.dir = RIGHT; break;
 			}
-			my_packet.move_time = static_cast<unsigned>(duration_cast<milliseconds>(high_resolution_clock::now().time_since_epoch()).count());
+			my_packet.move_time = get_elapsed_time_ms();
 			SendPacket(i, &my_packet);
 		}
 	}
@@ -365,6 +376,10 @@ void Test_Thread()
 
 void InitializeNetwork()
 {
+	cout << "Server IP (default 127.0.0.1): ";
+	getline(cin, g_server_ip);
+	if (g_server_ip.empty())
+		g_server_ip = "127.0.0.1";
 	for (auto& cl : g_clients) {
 		cl.connected = false;
 		cl.id = INVALID_ID;
@@ -372,7 +387,8 @@ void InitializeNetwork()
 
 	for (auto& cl : client_map) cl = -1;
 	num_connections = 0;
-	last_connect_time = high_resolution_clock::now();
+	test_start_time = high_resolution_clock::now();
+	last_connect_time = test_start_time;
 
 	WSADATA	wsadata;
 	WSAStartup(MAKEWORD(2, 2), &wsadata);
@@ -412,4 +428,8 @@ void GetPointCloud(int* size, float** points)
 	*size = index;
 	*points = point_cloud;
 }
+
+
+
+
 
