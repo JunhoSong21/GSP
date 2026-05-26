@@ -31,7 +31,17 @@ void WorkerThread()
 
 		OVEREX* over_ex = reinterpret_cast<OVEREX*>(overlapped);
 		Session* client = reinterpret_cast<Session*>(completion_key);
-		bool success = (TRUE == result);
+
+		bool success;
+		if(TRUE == result)
+			success = true;
+		else {
+			int err = ::GetLastError();
+			if (ERROR_NETNAME_DELETED == err || ERROR_CONNECTION_ABORTED == err)
+				success = false;
+			else
+				std::cout << "GetQueuedCompletionStatus failed with error: " << err << std::endl;
+		}
 
 		switch (over_ex->m_iotype) {
 		case IO_TYPE::IO_ACCEPT:
@@ -65,7 +75,7 @@ bool PostAccept(SOCKET listen_socket)
 	if (FALSE == ::AcceptEx(accept_over->s_socket, accept_over->m_c_socket, accept_over->m_buf, 0,
 		sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, NULL, &accept_over->m_over)) {
 
-		const int err = ::WSAGetLastError();
+		int err = ::WSAGetLastError();
 		if (WSA_IO_PENDING != err) {
 			std::cout << "AcceptEx Fail : " << err << std::endl;
 			::closesocket(accept_over->m_c_socket);
@@ -149,7 +159,7 @@ void HandleAccept(OVEREX* over_ex, bool success)
 		return;
 	}
 
-	g_clients.emplace(client->_player_id, client);
+	clients.emplace(client->_player_id, client);
 
 	client->Recv_Process();
 	PostAccept(listen_socket);
@@ -161,7 +171,7 @@ void HandleRecv(Session* client, OVEREX* over_ex, DWORD transferred, bool succes
 	if (nullptr == client || false == client->_connected.load())
 		return;
 
-	if (!success || 0 == transferred) {
+	if (false == success || 0 == transferred) {
 		Disconnect(client);
 		return;
 	}
@@ -180,7 +190,7 @@ void HandleRecv(Session* client, OVEREX* over_ex, DWORD transferred, bool succes
 		if (packet_size > remain_size)
 			break;
 
-		if (!ProcessPacket(client, packet_start))
+		if (false == ProcessPacket(client, packet_start))
 			return;
 
 		packet_start += packet_size;
