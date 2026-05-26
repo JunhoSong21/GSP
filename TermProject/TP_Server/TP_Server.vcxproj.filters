@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Main">
+      <UniqueIdentifier>{f46b90bb-74de-4f48-90f2-d77d35dda7ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Session">
+      <UniqueIdentifier>{27482f39-0a2b-470b-a5a1-88f993983010}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Error">
+      <UniqueIdentifier>{c8551997-7c67-4fd9-a644-d3138d4acd62}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Worker">
+      <UniqueIdentifier>{70297470-e760-40b6-b268-1078c0b094cc}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="Session.cpp">
+      <Filter>Session</Filter>
+    </ClCompile>
+    <ClCompile Include="ErrorDisplay.cpp">
+      <Filter>Error</Filter>
+    </ClCompile>
+    <ClCompile Include="Worker.cpp">
+      <Filter>Worker</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="enum.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="protocol_2026.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="headers.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="Session.h">
+      <Filter>Session</Filter>
+    </ClInclude>
+    <ClInclude Include="ErrorDisplay.h">
+      <Filter>Error</Filter>
+    </ClInclude>
+    <ClInclude Include="Worker.h">
+      <Filter>Worker</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
