@@ -9,8 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-class NetworkClient
-{
+class NetworkClient {
 public:
     enum class ConnectionState
     {
@@ -51,13 +50,13 @@ public:
     void Pump();
     void Disconnect(bool sendLogout = true);
 
-    ConnectionState GetState() const { return state_; }
-    const std::string& GetLastErrorMessage() const { return lastErrorMessage_; }
-    const std::string& GetLastServerMessage() const { return lastServerMessage_; }
-    bool IsLoginAccepted() const { return loginAccepted_; }
-    bool HasAvatarInfo() const { return hasAvatarInfo_; }
-    const AvatarInfo& GetAvatarInfo() const { return avatarInfo_; }
-    const std::unordered_map<int, NetworkObject>& GetObjects() const { return objects_; }
+    ConnectionState GetState() const { return _state; }
+    const std::string& GetLastErrorMessage() const { return _lastErrorMessage; }
+    const std::string& GetLastServerMessage() const { return _lastServerMessage; }
+    bool IsLoginAccepted() const { return _loginAccepted; }
+    bool HasAvatarInfo() const { return _hasAvatarInfo; }
+    const AvatarInfo& GetAvatarInfo() const { return _avatarInfo; }
+    const std::unordered_map<int, NetworkObject>& GetObjects() const { return _objects; }
 
 private:
     bool InitializeWinsock();
@@ -73,16 +72,18 @@ private:
     void CloseSocket();
     void SetError(const std::string& message, int errorCode);
 
-    SOCKET socket_{ INVALID_SOCKET };
-    ConnectionState state_{ ConnectionState::Disconnected };
-    bool winsockInitialized_{};
-    bool loginAccepted_{};
-    bool hasAvatarInfo_{};
-    std::string username_;
-    std::string lastErrorMessage_;
-    std::string lastServerMessage_;
-    AvatarInfo avatarInfo_;
-    std::unordered_map<int, NetworkObject> objects_;
-    std::vector<char> receiveBuffer_;
-    std::vector<char> sendBuffer_;
+private:
+    SOCKET          _socket = INVALID_SOCKET;
+    ConnectionState _state{ ConnectionState::Disconnected };
+
+    bool _winsockInitialized{};
+    bool _loginAccepted{};
+    bool _hasAvatarInfo{};
+    std::string _username;
+    std::string _lastErrorMessage;
+    std::string _lastServerMessage;
+    AvatarInfo _avatarInfo;
+    std::unordered_map<int, NetworkObject> _objects;
+    std::vector<char> _receiveBuffer;
+    std::vector<char> _sendBuffer;
 };

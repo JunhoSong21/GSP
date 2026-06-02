@@ -21,14 +21,14 @@ private:
     void DrawStartScreen();
     void DrawScene(float totalTime);
 
-    HWND hwnd_{};
-    Microsoft::WRL::ComPtr<ID2D1Factory> factory_;
-    Microsoft::WRL::ComPtr<IWICImagingFactory> wicFactory_;
-    Microsoft::WRL::ComPtr<ID2D1HwndRenderTarget> renderTarget_;
-    Microsoft::WRL::ComPtr<ID2D1Bitmap> startScreenBitmap_;
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> gridBrush_;
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> accentBrush_;
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> playerBrush_;
-    std::wstring startScreenPath_;
-    bool startScreenLoadFailed_{};
+    HWND _hwnd{};
+    Microsoft::WRL::ComPtr<ID2D1Factory> _factory;
+    Microsoft::WRL::ComPtr<IWICImagingFactory> _wicFactory;
+    Microsoft::WRL::ComPtr<ID2D1HwndRenderTarget> _renderTarget;
+    Microsoft::WRL::ComPtr<ID2D1Bitmap> _startScreenBitmap;
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> _gridBrush;
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> _accentBrush;
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> _playerBrush;
+    std::wstring _startScreenPath;
+    bool _startScreenLoadFailed{};
 };

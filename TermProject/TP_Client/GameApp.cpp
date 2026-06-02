@@ -2,19 +2,19 @@
 
 #include <string>
 
-constexpr wchar_t WINDOW_CLASS_NAME[] = L"TPClientWindowClass";
-constexpr wchar_t WINDOW_TITLE[] = L"TP Client";
-constexpr int INITIAL_WIDTH = 1280;
-constexpr int INITIAL_HEIGHT = 720;
-constexpr char SERVER_ADDRESS[] = "127.0.0.1";
-constexpr char DEFAULT_PLAYER_NAME[] = "Player";
+constexpr wchar_t   WINDOW_CLASS_NAME[]     = L"TPClientWindowClass";
+constexpr wchar_t   WINDOW_TITLE[]          = L"TP Client";
+constexpr int       INITIAL_WIDTH           = 1280;
+constexpr int       INITIAL_HEIGHT          = 720;
+constexpr char      SERVER_ADDRESS[]        = "127.0.0.1";
+constexpr char      DEFAULT_PLAYER_NAME[]   = "Player";
 
 int GameApp::Run(HINSTANCE instance, int commandShow)
 {
     const HRESULT comResult = ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     const bool shouldUninitializeCom = SUCCEEDED(comResult);
 
-    if (FAILED(comResult) && comResult != RPC_E_CHANGED_MODE)
+    if (FAILED(comResult) && RPC_E_CHANGED_MODE != comResult)
         return -1;
 
     if (FAILED(InitializeWindow(instance, commandShow)))
@@ -50,21 +50,21 @@ HRESULT GameApp::InitializeWindow(HINSTANCE instance, int commandShow)
     RECT windowRect{ 0, 0, INITIAL_WIDTH, INITIAL_HEIGHT };
     ::AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
 
-    hwnd_ = ::CreateWindowEx(0, WINDOW_CLASS_NAME, WINDOW_TITLE,
+    _hwnd = ::CreateWindowEx(0, WINDOW_CLASS_NAME, WINDOW_TITLE,
         WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
         windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
         nullptr, nullptr, instance, this);
 
-    if (!hwnd_)
+    if (!_hwnd)
         return HRESULT_FROM_WIN32(::GetLastError());
 
-    HRESULT hr = renderer_.Initialize(hwnd_);
+    HRESULT hr = _renderer.Initialize(_hwnd);
     if (FAILED(hr))
         return hr;
 
-    ::ShowWindow(hwnd_, commandShow);
-    ::UpdateWindow(hwnd_);
-    timer_.Reset();
+    ::ShowWindow(_hwnd, commandShow);
+    ::UpdateWindow(_hwnd);
+    _timer.Reset();
 
     return S_OK;
 }
@@ -73,23 +73,22 @@ void GameApp::RunMessageLoop()
 {
     MSG message{};
 
-    while (message.message != WM_QUIT)
+    while (WM_QUIT != message.message)
     {
-        if (::PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
-        {
+        if (::PeekMessage(&message, nullptr, 0, 0, PM_REMOVE)) {
             ::TranslateMessage(&message);
             ::DispatchMessage(&message);
             continue;
         }
 
-        if (minimized_)
+        if (_minimized)
         {
             ::WaitMessage();
-            timer_.Reset();
+            _timer.Reset();
             continue;
         }
 
-        const float deltaTime = timer_.Tick();
+        const float deltaTime = _timer.Tick();
         Update(deltaTime);
         Render();
     }
@@ -97,33 +96,33 @@ void GameApp::RunMessageLoop()
 
 void GameApp::Update(float deltaTime)
 {
-    networkClient_.Pump();
+    _networkClient.Pump();
 
-    if (gameState_ != GameState::Playing)
+    if (GameState::Playing != _gameState)
         return;
 
-    totalTime_ += deltaTime;
+    _totalTime += deltaTime;
 }
 
 void GameApp::Render()
 {
-    renderer_.Render(gameState_ == GameState::Playing, totalTime_);
+    _renderer.Render(GameState::Playing == _gameState, _totalTime);
 }
 
 void GameApp::StartGame()
 {
-    gameState_ = GameState::Playing;
-    totalTime_ = 0.0f;
-    timer_.Reset();
-    networkClient_.Connect(SERVER_ADDRESS, PORT, DEFAULT_PLAYER_NAME);
-    ::InvalidateRect(hwnd_, nullptr, FALSE);
+    _gameState = GameState::Playing;
+    _totalTime = 0.0f;
+    _timer.Reset();
+    _networkClient.Connect(SERVER_ADDRESS, PORT, DEFAULT_PLAYER_NAME);
+    ::InvalidateRect(_hwnd, nullptr, FALSE);
 }
 
 LRESULT CALLBACK GameApp::StaticWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     GameApp* app = nullptr;
 
-    if (message == WM_NCCREATE)
+    if (WM_NCCREATE == message)
     {
         const auto createStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
         app = static_cast<GameApp*>(createStruct->lpCreateParams);
@@ -146,10 +145,10 @@ LRESULT GameApp::WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
     {
         const UINT width = LOWORD(lParam);
         const UINT height = HIWORD(lParam);
-        minimized_ = (wParam == SIZE_MINIMIZED);
+        _minimized = (SIZE_MINIMIZED == wParam);
 
-        if (!minimized_)
-            renderer_.Resize(width, height);
+        if (!_minimized)
+            _renderer.Resize(width, height);
 
         return 0;
     }
@@ -167,7 +166,7 @@ LRESULT GameApp::WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 
         return 0;
     case WM_KEYDOWN:
-        if (wParam == VK_RETURN && gameState_ == GameState::StartScreen)
+        if (VK_RETURN == wParam && GameState::StartScreen == _gameState)
         {
             StartGame();
 
@@ -176,7 +175,7 @@ LRESULT GameApp::WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 
         break;
     case WM_DESTROY:
-        networkClient_.Disconnect();
+        _networkClient.Disconnect();
         ::PostQuitMessage(0);
 
         return 0;

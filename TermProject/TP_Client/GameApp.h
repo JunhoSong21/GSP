@@ -6,8 +6,7 @@
 
 #include <Windows.h>
 
-class GameApp
-{
+class GameApp {
 public:
     int Run(HINSTANCE instance, int commandShow);
 
@@ -27,11 +26,14 @@ private:
     void Render();
     void StartGame();
 
-    HWND hwnd_{};
-    NetworkClient networkClient_;
-    D2DRenderer renderer_;
-    GameTimer timer_;
-    GameState gameState_{ GameState::StartScreen };
-    float totalTime_{};
-    bool minimized_{};
+private:
+    HWND                _hwnd{};
+    NetworkClient       _networkClient;
+    D2DRenderer         _renderer;
+    GameTimer           _timer;
+    GameState           _gameState{ GameState::StartScreen };
+
+    float               _totalTime{};
+    bool                _minimized{};
+
 };

@@ -11,6 +11,6 @@ public:
     float Tick();
 
 private:
-    LARGE_INTEGER frequency_{};
-    LARGE_INTEGER previousTime_{};
+    LARGE_INTEGER _frequency{};
+    LARGE_INTEGER _previousTime{};
 };

@@ -15,7 +15,7 @@ static std::wstring FindAssetPath(const wchar_t* fileName)
     std::filesystem::path currentPath(modulePath);
     currentPath = currentPath.parent_path();
 
-    for (int i = 0; i < 8 && !currentPath.empty(); ++i)
+    for (int i = 0; 8 > i && !currentPath.empty(); ++i)
     {
         const auto candidate = currentPath / L"Assets" / fileName;
         std::error_code errorCode;
@@ -33,16 +33,16 @@ static std::wstring FindAssetPath(const wchar_t* fileName)
 
 HRESULT D2DRenderer::Initialize(HWND hwnd)
 {
-    hwnd_ = hwnd;
-    startScreenPath_ = FindAssetPath(START_SCREEN_FILE_NAME);
+    _hwnd = hwnd;
+    _startScreenPath = FindAssetPath(START_SCREEN_FILE_NAME);
 
     return CreateDeviceIndependentResources();
 }
 
 void D2DRenderer::Resize(UINT width, UINT height)
 {
-    if (renderTarget_)
-        renderTarget_->Resize(D2D1::SizeU(width, height));
+    if (_renderTarget)
+        _renderTarget->Resize(D2D1::SizeU(width, height));
 }
 
 HRESULT D2DRenderer::Render(bool gameStarted, float totalTime)
@@ -51,17 +51,17 @@ HRESULT D2DRenderer::Render(bool gameStarted, float totalTime)
     if (FAILED(hr))
         return hr;
 
-    renderTarget_->BeginDraw();
-    renderTarget_->SetTransform(D2D1::Matrix3x2F::Identity());
-    renderTarget_->Clear(D2D1::ColorF(0x10151F));
+    _renderTarget->BeginDraw();
+    _renderTarget->SetTransform(D2D1::Matrix3x2F::Identity());
+    _renderTarget->Clear(D2D1::ColorF(0x10151F));
 
     if (gameStarted)
         DrawScene(totalTime);
     else
         DrawStartScreen();
 
-    hr = renderTarget_->EndDraw();
-    if (hr == D2DERR_RECREATE_TARGET)
+    hr = _renderTarget->EndDraw();
+    if (D2DERR_RECREATE_TARGET == hr)
     {
         DiscardDeviceResources();
         hr = S_OK;
@@ -73,7 +73,7 @@ HRESULT D2DRenderer::Render(bool gameStarted, float totalTime)
 HRESULT D2DRenderer::CreateDeviceIndependentResources()
 {
     HRESULT hr = ::D2D1CreateFactory(
-        D2D1_FACTORY_TYPE_SINGLE_THREADED, factory_.GetAddressOf());
+        D2D1_FACTORY_TYPE_SINGLE_THREADED, _factory.GetAddressOf());
 
     if (SUCCEEDED(hr))
     {
@@ -81,7 +81,7 @@ HRESULT D2DRenderer::CreateDeviceIndependentResources()
             CLSID_WICImagingFactory,
             nullptr,
             CLSCTX_INPROC_SERVER,
-            IID_PPV_ARGS(wicFactory_.GetAddressOf()));
+            IID_PPV_ARGS(_wicFactory.GetAddressOf()));
     }
 
     return hr;
@@ -89,42 +89,42 @@ HRESULT D2DRenderer::CreateDeviceIndependentResources()
 
 HRESULT D2DRenderer::CreateDeviceResources()
 {
-    if (renderTarget_)
+    if (_renderTarget)
         return S_OK;
 
     RECT clientRect{};
-    ::GetClientRect(hwnd_, &clientRect);
+    ::GetClientRect(_hwnd, &clientRect);
 
     const D2D1_SIZE_U size = D2D1::SizeU(
         static_cast<UINT>(clientRect.right - clientRect.left),
         static_cast<UINT>(clientRect.bottom - clientRect.top));
 
-    HRESULT hr = factory_->CreateHwndRenderTarget(
+    HRESULT hr = _factory->CreateHwndRenderTarget(
         D2D1::RenderTargetProperties(),
-        D2D1::HwndRenderTargetProperties(hwnd_, size),
-        renderTarget_.GetAddressOf());
+        D2D1::HwndRenderTargetProperties(_hwnd, size),
+        _renderTarget.GetAddressOf());
 
     if (SUCCEEDED(hr))
     {
-        renderTarget_->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+        _renderTarget->SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
 
-        hr = renderTarget_->CreateSolidColorBrush(
+        hr = _renderTarget->CreateSolidColorBrush(
             D2D1::ColorF(0x263244),
-            gridBrush_.GetAddressOf());
+            _gridBrush.GetAddressOf());
     }
 
     if (SUCCEEDED(hr))
     {
-        hr = renderTarget_->CreateSolidColorBrush(
+        hr = _renderTarget->CreateSolidColorBrush(
             D2D1::ColorF(0xF2C14E),
-            accentBrush_.GetAddressOf());
+            _accentBrush.GetAddressOf());
     }
 
     if (SUCCEEDED(hr))
     {
-        hr = renderTarget_->CreateSolidColorBrush(
+        hr = _renderTarget->CreateSolidColorBrush(
             D2D1::ColorF(0x3DDC97),
-            playerBrush_.GetAddressOf());
+            _playerBrush.GetAddressOf());
     }
 
     return hr;
@@ -132,17 +132,17 @@ HRESULT D2DRenderer::CreateDeviceResources()
 
 void D2DRenderer::DiscardDeviceResources()
 {
-    startScreenBitmap_.Reset();
-    playerBrush_.Reset();
-    accentBrush_.Reset();
-    gridBrush_.Reset();
-    renderTarget_.Reset();
+    _startScreenBitmap.Reset();
+    _playerBrush.Reset();
+    _accentBrush.Reset();
+    _gridBrush.Reset();
+    _renderTarget.Reset();
 }
 
 HRESULT D2DRenderer::LoadBitmapFromFile(const std::wstring& filePath, ID2D1Bitmap** bitmap)
 {
     Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder;
-    HRESULT hr = wicFactory_->CreateDecoderFromFilename(
+    HRESULT hr = _wicFactory->CreateDecoderFromFilename(
         filePath.c_str(),
         nullptr,
         GENERIC_READ,
@@ -155,7 +155,7 @@ HRESULT D2DRenderer::LoadBitmapFromFile(const std::wstring& filePath, ID2D1Bitma
 
     Microsoft::WRL::ComPtr<IWICFormatConverter> converter;
     if (SUCCEEDED(hr))
-        hr = wicFactory_->CreateFormatConverter(converter.GetAddressOf());
+        hr = _wicFactory->CreateFormatConverter(converter.GetAddressOf());
 
     if (SUCCEEDED(hr))
     {
@@ -169,32 +169,32 @@ HRESULT D2DRenderer::LoadBitmapFromFile(const std::wstring& filePath, ID2D1Bitma
     }
 
     if (SUCCEEDED(hr))
-        hr = renderTarget_->CreateBitmapFromWicBitmap(converter.Get(), nullptr, bitmap);
+        hr = _renderTarget->CreateBitmapFromWicBitmap(converter.Get(), nullptr, bitmap);
 
     return hr;
 }
 
 void D2DRenderer::DrawStartScreen()
 {
-    if (!startScreenBitmap_ && !startScreenLoadFailed_)
+    if (!_startScreenBitmap && !_startScreenLoadFailed)
     {
-        const HRESULT hr = LoadBitmapFromFile(startScreenPath_, startScreenBitmap_.GetAddressOf());
-        startScreenLoadFailed_ = FAILED(hr);
+        const HRESULT hr = LoadBitmapFromFile(_startScreenPath, _startScreenBitmap.GetAddressOf());
+        _startScreenLoadFailed = FAILED(hr);
     }
 
-    if (!startScreenBitmap_)
+    if (!_startScreenBitmap)
         return;
 
-    const D2D1_SIZE_F renderSize = renderTarget_->GetSize();
-    const D2D1_SIZE_F bitmapSize = startScreenBitmap_->GetSize();
+    const D2D1_SIZE_F renderSize = _renderTarget->GetSize();
+    const D2D1_SIZE_F bitmapSize = _startScreenBitmap->GetSize();
     const float scale = std::min(renderSize.width / bitmapSize.width, renderSize.height / bitmapSize.height);
     const float width = bitmapSize.width * scale;
     const float height = bitmapSize.height * scale;
     const float left = (renderSize.width - width) * 0.5f;
     const float top = (renderSize.height - height) * 0.5f;
 
-    renderTarget_->DrawBitmap(
-        startScreenBitmap_.Get(),
+    _renderTarget->DrawBitmap(
+        _startScreenBitmap.Get(),
         D2D1::RectF(left, top, left + width, top + height),
         1.0f,
         D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
@@ -202,24 +202,24 @@ void D2DRenderer::DrawStartScreen()
 
 void D2DRenderer::DrawScene(float totalTime)
 {
-    const D2D1_SIZE_F size = renderTarget_->GetSize();
+    const D2D1_SIZE_F size = _renderTarget->GetSize();
     constexpr float tileSize = 32.0f;
 
-    for (float x = 0.0f; x < size.width; x += tileSize)
+    for (float x = 0.0f; size.width > x; x += tileSize)
     {
-        renderTarget_->DrawLine(
+        _renderTarget->DrawLine(
             D2D1::Point2F(x, 0.0f),
             D2D1::Point2F(x, size.height),
-            gridBrush_.Get(),
+            _gridBrush.Get(),
             1.0f);
     }
 
-    for (float y = 0.0f; y < size.height; y += tileSize)
+    for (float y = 0.0f; size.height > y; y += tileSize)
     {
-        renderTarget_->DrawLine(
+        _renderTarget->DrawLine(
             D2D1::Point2F(0.0f, y),
             D2D1::Point2F(size.width, y),
-            gridBrush_.Get(),
+            _gridBrush.Get(),
             1.0f);
     }
 
@@ -235,9 +235,9 @@ void D2DRenderer::DrawScene(float totalTime)
         centerX + 220.0f,
         centerY + 140.0f);
 
-    renderTarget_->DrawRectangle(arena, accentBrush_.Get(), 3.0f);
+    _renderTarget->DrawRectangle(arena, _accentBrush.Get(), 3.0f);
 
-    renderTarget_->FillEllipse(
+    _renderTarget->FillEllipse(
         D2D1::Ellipse(D2D1::Point2F(playerX, playerY), 18.0f, 18.0f),
-        playerBrush_.Get());
+        _playerBrush.Get());
 }

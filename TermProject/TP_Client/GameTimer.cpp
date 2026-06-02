@@ -2,13 +2,13 @@
 
 GameTimer::GameTimer()
 {
-    ::QueryPerformanceFrequency(&frequency_);
+    ::QueryPerformanceFrequency(&_frequency);
     Reset();
 }
 
 void GameTimer::Reset()
 {
-    ::QueryPerformanceCounter(&previousTime_);
+    ::QueryPerformanceCounter(&_previousTime);
 }
 
 float GameTimer::Tick()
@@ -16,8 +16,8 @@ float GameTimer::Tick()
     LARGE_INTEGER currentTime{};
     ::QueryPerformanceCounter(&currentTime);
 
-    const auto elapsedCounts = currentTime.QuadPart - previousTime_.QuadPart;
-    previousTime_ = currentTime;
+    const auto elapsedCounts = currentTime.QuadPart - _previousTime.QuadPart;
+    _previousTime = currentTime;
 
-    return static_cast<float>(elapsedCounts) / static_cast<float>(frequency_.QuadPart);
+    return static_cast<float>(elapsedCounts) / static_cast<float>(_frequency.QuadPart);
 }
