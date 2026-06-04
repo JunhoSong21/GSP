@@ -140,6 +140,17 @@ void ProcessPacket(char* ptr)
 	static bool first_time = true;
 	switch (ptr[1])
 	{
+	case S2C_LOGIN_RESULT:
+	{
+		S2C_LoginResult* packet = reinterpret_cast<S2C_LoginResult*>(ptr);
+		if (false == packet->success) {
+			cout << "ID가 존재하지 않아 접속 실패: " << packet->message << "\n";
+			cout << "엔터키를 누르면 종료합니다.";
+			cin.get();
+			exit(-1);
+		}
+		break;
+	}
 	case S2C_AVATAR_INFO:
 	{
 		S2C_AvatarInfo* packet = reinterpret_cast<S2C_AvatarInfo*>(ptr);
@@ -297,6 +308,11 @@ int main()
 	if (server_ip.empty())
 		server_ip = "127.0.0.1";
 
+	string player_name;
+	cout << "ID: ";
+	getline(cin, player_name);
+	if (player_name.size() >= MAX_NAME_LEN)
+		player_name.resize(MAX_NAME_LEN - 1);
 	sf::IpAddress server_address(server_ip);
 	sf::Socket::Status status = s_socket.connect(server_address, PORT);
 	s_socket.setBlocking(false);
@@ -311,9 +327,6 @@ int main()
 	p.size = sizeof(p);
 	p.type = C2S_LOGIN;
 
-	string player_name{ "P" };
-	player_name += to_string(GetCurrentProcessId());
-	
 	strcpy_s(p.username, player_name.c_str());
 	send_packet(&p);
 	avatar.set_name(p.username);
@@ -329,7 +342,7 @@ int main()
 			if (event.type == sf::Event::Closed)
 				window.close();
 			if (event.type == sf::Event::KeyPressed) {
-				DIRECTION direction = UP;
+				int direction = -1;
 				switch (event.key.code) {
 				case sf::Keyboard::Left:
 					direction = LEFT;
@@ -351,7 +364,7 @@ int main()
 					C2S_Move p;
 					p.size = sizeof(p);
 					p.type = C2S_MOVE;
-					p.dir = direction;
+					p.dir = static_cast<DIRECTION>(direction);
 					send_packet(&p);
 				}
 
@@ -366,4 +379,6 @@ int main()
 
 	return 0;
 }
+
+
 
