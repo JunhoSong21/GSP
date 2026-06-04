@@ -9,11 +9,19 @@
 #include <concurrent_priority_queue.h>
 #include <atomic>
 #include <memory>
+#include <cstdio>
+#include <cwchar>
+#include <tbb/concurrent_queue.h>
 #include <tbb/concurrent_unordered_map.h>
 #include "protocol_2026.h"
 
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "MSWSock.lib")
+
+#include <sql.h>
+#include <sqlext.h>
+#pragma comment(lib, "odbc32.lib")
+
 using namespace std;
 using namespace std::chrono;
 
@@ -38,11 +46,30 @@ struct event_type {
 
 concurrency::concurrent_priority_queue<event_type> timer_queue;
 
+enum DB_EVENT_TYPE {
+	DB_LOGIN,
+	DB_SAVE
+};
+
+struct db_event_type {
+	DB_EVENT_TYPE event_type;
+	int client_id;
+	char username[MAX_NAME_LEN];
+	short x;
+	short y;
+};
+
+tbb::concurrent_queue<db_event_type> db_queue;
+constexpr const char* DB_CONNECTION_STRING = "DSN=2026_GSP_ODBC;Trusted_Connection=Yes;";
+constexpr const char* LOGIN_FAIL_MESSAGE = "아이디가 존재하지 않습니다.";
+
 enum COMP_TYPE {
 	OP_ACCEPT,
 	OP_RECV,
 	OP_SEND,
-	OP_NPCMOVE
+	OP_SEND_CLOSE,
+	OP_NPCMOVE,
+	OP_DBLOGIN_RESULT
 };
  
 class OVER_EXP {
@@ -52,12 +79,23 @@ public:
 	char _send_buf[BUF_SIZE];
 	COMP_TYPE _comp_type;
 	int _ai_target_obj;
+	bool _db_login_success;
+	char _db_username[MAX_NAME_LEN];
+	char _db_message[50];
+	short _db_x;
+	short _db_y;
 
 	OVER_EXP()
 	{
 		_wsabuf.len = BUF_SIZE;
 		_wsabuf.buf = _send_buf;
 		_comp_type = OP_RECV;
+		_ai_target_obj = -1;
+		_db_login_success = false;
+		_db_username[0] = 0;
+		_db_message[0] = 0;
+		_db_x = 0;
+		_db_y = 0;
 		ZeroMemory(&_over, sizeof(_over));
 	}
 
@@ -117,9 +155,10 @@ public:
 			&_recv_over._over, 0);
 	}
 
-	void do_send(void* packet)
+	void do_send(void* packet, COMP_TYPE comp_type = OP_SEND)
 	{
 		OVER_EXP* sdata = new OVER_EXP{ reinterpret_cast<char*>(packet) };
+		sdata->_comp_type = comp_type;
 		WSASend(_socket, &sdata->_wsabuf, 1, 0, 0, &sdata->_over, 0);
 	}
 
@@ -132,6 +171,16 @@ public:
 		p.x = x;
 		p.y = y;
 		do_send(&p);
+	}
+
+	void send_login_result_packet(bool success, const char* message, bool close_after_send = false)
+	{
+		S2C_LoginResult p;
+		p.size = sizeof(p);
+		p.type = S2C_LOGIN_RESULT;
+		p.success = success;
+		strcpy_s(p.message, message);
+		do_send(&p, close_after_send ? OP_SEND_CLOSE : OP_SEND);
 	}
 
 	void send_move_packet(int c_id);
@@ -180,6 +229,218 @@ tbb::concurrent_unordered_map<int, std::shared_ptr<SESSION>> clients;
 tbb::concurrent_unordered_map<int, std::shared_ptr<SECTOR>> sectors;
 SOCKET g_s_socket, g_c_socket;
 OVER_EXP g_a_over;
+
+void HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCODE RetCode)
+{
+	SQLSMALLINT iRec = 0;
+	SQLINTEGER iError;
+	WCHAR wszMessage[1000];
+	WCHAR wszState[SQL_SQLSTATE_SIZE + 1];
+
+	if (RetCode == SQL_INVALID_HANDLE) {
+		fwprintf(stderr, L"Invalid handle!\n");
+		return;
+	}
+
+	while (SQL_SUCCESS == SQLGetDiagRec(hType, hHandle, ++iRec, wszState, &iError, wszMessage,
+		(SQLSMALLINT)(sizeof(wszMessage) / sizeof(WCHAR)), (SQLSMALLINT*)NULL)) {
+		if (wcsncmp(wszState, L"01004", 5)) {
+			fwprintf(stderr, L"[%5.5s] %s (%d)\n", wszState, wszMessage, iError);
+		}
+	}
+}
+
+void print_odbc_error(SQLSMALLINT handle_type, SQLHANDLE handle, SQLRETURN ret, const char* message)
+{
+	std::cerr << message << "\n";
+	HandleDiagnosticRecord(handle, handle_type, ret);
+}
+
+bool check_odbc(SQLRETURN ret, SQLSMALLINT handle_type, SQLHANDLE handle, const char* message)
+{
+	if (true == SQL_SUCCEEDED(ret))
+		return true;
+
+	print_odbc_error(handle_type, handle, ret, message);
+
+	return false;
+}
+
+bool initialize_db_connection(SQLHENV& db_env, SQLHDBC& db_conn)
+{
+	db_env = SQL_NULL_HENV;
+	db_conn = SQL_NULL_HDBC;
+
+	SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &db_env);
+	if (false == SQL_SUCCEEDED(ret))
+		return false;
+
+	ret = SQLSetEnvAttr(db_env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<SQLPOINTER>(SQL_OV_ODBC3), 0);
+	if (false == SQL_SUCCEEDED(ret)) {
+		print_odbc_error(SQL_HANDLE_ENV, db_env, ret, "SQLSetEnvAttr failed.");
+		SQLFreeHandle(SQL_HANDLE_ENV, db_env);
+		db_env = SQL_NULL_HENV;
+		return false;
+	}
+
+	ret = SQLAllocHandle(SQL_HANDLE_DBC, db_env, &db_conn);
+	if (false == SQL_SUCCEEDED(ret)) {
+		print_odbc_error(SQL_HANDLE_ENV, db_env, ret, "SQLAllocHandle DBC failed.");
+		SQLFreeHandle(SQL_HANDLE_ENV, db_env);
+		db_env = SQL_NULL_HENV;
+		return false;
+	}
+
+	SQLCHAR out_conn_str[1024];
+	SQLSMALLINT out_len = 0;
+	ret = SQLDriverConnectA(db_conn, nullptr, reinterpret_cast<SQLCHAR*>(const_cast<char*>(DB_CONNECTION_STRING)), SQL_NTS,
+		out_conn_str, sizeof(out_conn_str), &out_len, SQL_DRIVER_NOPROMPT);
+	if (false == SQL_SUCCEEDED(ret)) {
+		print_odbc_error(SQL_HANDLE_DBC, db_conn, ret, "DB connection failed.");
+		SQLFreeHandle(SQL_HANDLE_DBC, db_conn);
+		SQLFreeHandle(SQL_HANDLE_ENV, db_env);
+		db_conn = SQL_NULL_HDBC;
+		db_env = SQL_NULL_HENV;
+		return false;
+	}
+
+	std::cout << "DB connected.\n";
+	return true;
+}
+
+bool db_get_user_position(SQLHDBC db_conn, const char* username, short& x, short& y)
+{
+	SQLHSTMT stmt = SQL_NULL_HSTMT;
+	SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, db_conn, &stmt);
+	if (false == SQL_SUCCEEDED(ret))
+		return false;
+
+	auto free_stmt = [&]() { SQLFreeHandle(SQL_HANDLE_STMT, stmt); };
+
+	ret = SQLPrepareA(stmt, reinterpret_cast<SQLCHAR*>(const_cast<char*>("{CALL dbo.sp_get_user_position(?)}")), SQL_NTS);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLPrepare get position failed.")) {
+		free_stmt();
+		return false;
+	}
+
+	SQLLEN username_len = SQL_NTS;
+	ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, MAX_NAME_LEN, 0,
+		reinterpret_cast<SQLPOINTER>(const_cast<char*>(username)), 0, &username_len);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLBindParameter user_id failed.")) {
+		free_stmt();
+		return false;
+	}
+
+	SQLINTEGER db_x = 0;
+	SQLINTEGER db_y = 0;
+	SQLLEN x_indicator = 0;
+	SQLLEN y_indicator = 0;
+
+	ret = SQLBindCol(stmt, 1, SQL_C_SLONG, &db_x, sizeof(db_x), &x_indicator);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLBindCol x failed.")) {
+		free_stmt();
+		return false;
+	}
+
+	ret = SQLBindCol(stmt, 2, SQL_C_SLONG, &db_y, sizeof(db_y), &y_indicator);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLBindCol y failed.")) {
+		free_stmt();
+		return false;
+	}
+
+	ret = SQLExecute(stmt);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLExecute get position failed.")) {
+		free_stmt();
+		return false;
+	}
+
+	ret = SQLFetch(stmt);
+	if (SQL_NO_DATA == ret) {
+		free_stmt();
+		return false;
+	}
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLFetch get position failed.")) {
+		free_stmt();
+		return false;
+	}
+
+	if (db_x < 0) db_x = 0;
+	if (db_x >= WORLD_WIDTH) db_x = WORLD_WIDTH - 1;
+	if (db_y < 0) db_y = 0;
+	if (db_y >= WORLD_HEIGHT) db_y = WORLD_HEIGHT - 1;
+
+	x = static_cast<short>(db_x);
+	y = static_cast<short>(db_y);
+	free_stmt();
+	return true;
+}
+
+bool db_save_user_position(SQLHDBC db_conn, const char* username, short x, short y)
+{
+	SQLHSTMT stmt = SQL_NULL_HSTMT;
+	SQLRETURN ret = SQLAllocHandle(SQL_HANDLE_STMT, db_conn, &stmt);
+	if (false == SQL_SUCCEEDED(ret))
+		return false;
+
+	auto free_stmt = [&]() { SQLFreeHandle(SQL_HANDLE_STMT, stmt); };
+
+	ret = SQLPrepareA(stmt, reinterpret_cast<SQLCHAR*>(const_cast<char*>("{CALL dbo.sp_save_user_position(?, ?, ?)}")), SQL_NTS);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLPrepare save position failed.")) {
+		free_stmt();
+		return false;
+	}
+
+	SQLINTEGER db_x = x;
+	SQLINTEGER db_y = y;
+	SQLLEN x_indicator = 0;
+	SQLLEN y_indicator = 0;
+	SQLLEN username_len = SQL_NTS;
+
+	ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, MAX_NAME_LEN, 0,
+		reinterpret_cast<SQLPOINTER>(const_cast<char*>(username)), 0, &username_len);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLBindParameter save user_id failed.")) {
+		free_stmt();
+
+		return false;
+	}
+
+	ret = SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &db_x, 0, &x_indicator);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLBindParameter save x failed.")) {
+		free_stmt();
+
+		return false;
+	}
+
+	ret = SQLBindParameter(stmt, 3, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &db_y, 0, &y_indicator);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLBindParameter save y failed.")) {
+		free_stmt();
+
+		return false;
+	}
+
+	ret = SQLExecute(stmt);
+	if (false == check_odbc(ret, SQL_HANDLE_STMT, stmt, "SQLExecute save position failed.")) {
+		free_stmt();
+
+		return false;
+	}
+
+	free_stmt();
+
+	return true;
+}
+
+void post_db_login_result(int client_id, const char* username, bool success, short x, short y, const char* message)
+{
+	OVER_EXP* db_over = new OVER_EXP;
+	db_over->_comp_type = OP_DBLOGIN_RESULT;
+	db_over->_db_login_success = success;
+	db_over->_db_x = x;
+	db_over->_db_y = y;
+	strcpy_s(db_over->_db_username, username);
+	strcpy_s(db_over->_db_message, message);
+	PostQueuedCompletionStatus(h_iocp, 0, client_id, &db_over->_over);
+}
 
 std::shared_ptr<SESSION> get_session_ptr(int object_id)
 {
@@ -408,33 +669,47 @@ int get_new_client_id()
 	return -1;
 }
 
+void complete_login_success(int c_id, const char* username, short x, short y)
+{
+	std::shared_ptr<SESSION> client = get_session_ptr(c_id);
+	{
+		std::lock_guard<mutex> ll{ client->_s_lock };
+		if (ST_ALLOC != client->_state)
+			return;
+
+		strcpy_s(client->_name, username);
+		client->x = x;
+		client->y = y;
+		client->_state = ST_INGAME;
+	}
+	enter_sector(c_id);
+	client->send_login_info_packet();
+
+	std::unordered_set<int> near_list = get_near_list_by_sector(c_id, true);
+	for (auto& pl : near_list) {
+		std::shared_ptr<SESSION> target = get_session_ptr(pl);
+		if (is_pc(pl))
+			target->send_add_player_packet(c_id);
+		client->send_add_player_packet(pl);
+
+		// 시야에 들어온 NPC를 깨움
+		if (is_npc(pl))
+			target->wake_up();
+	}
+}
+
 void process_packet(int c_id, char* packet)
 {
 	switch (packet[1]) {
 	case C2S_LOGIN: {
-		std::shared_ptr<SESSION> client = get_session_ptr(c_id);
 		C2S_Login* p = reinterpret_cast<C2S_Login*>(packet);
-		strcpy_s(client->_name, p->username);
-		{
-			std::lock_guard<mutex> ll{ client->_s_lock };
-			client->x = rand() % WORLD_WIDTH;
-			client->y = rand() % WORLD_HEIGHT;
-			client->_state = ST_INGAME;
-		}
-		enter_sector(c_id);
-		client->send_login_info_packet();
-
-		std::unordered_set<int> near_list = get_near_list_by_sector(c_id, true);
-		for (auto& pl : near_list) {
-			std::shared_ptr<SESSION> target = get_session_ptr(pl);
-			if (is_pc(pl))
-				target->send_add_player_packet(c_id);
-			client->send_add_player_packet(pl);
-
-			// 시야에 들어온 NPC를 깨움
-			if (is_npc(pl))
-				target->wake_up();
-		}
+		db_event_type ev;
+		ev.event_type = DB_LOGIN;
+		ev.client_id = c_id;
+		ev.x = 0;
+		ev.y = 0;
+		strcpy_s(ev.username, p->username);
+		db_queue.push(ev);
 
 		break;
 	}
@@ -513,15 +788,29 @@ void disconnect(int c_id)
 {
 	std::shared_ptr<SESSION> client = get_session_ptr(c_id);
 	SOCKET socket_to_close = INVALID_SOCKET;
+	bool need_save = false;
+	db_event_type save_ev;
 	{
 		lock_guard<mutex> ll(client->_s_lock);
 		if (ST_FREE == client->_state)
 			return;
 
+		if ((ST_INGAME == client->_state) && (client->_name[0] != 0)) {
+			save_ev.event_type = DB_SAVE;
+			save_ev.client_id = c_id;
+			save_ev.x = client->x;
+			save_ev.y = client->y;
+			strcpy_s(save_ev.username, client->_name);
+			need_save = true;
+		}
+
 		client->_state = ST_FREE;
 		socket_to_close = client->_socket;
 		client->_socket = INVALID_SOCKET;
 	}
+
+	if (need_save)
+		db_queue.push(save_ev);
 
 	leave_sector(c_id);
 
@@ -578,20 +867,20 @@ void worker_thread(HANDLE h_iocp)
 				continue;
 			}
 			
-			if(::WSAGetLastError() != ERROR_NETNAME_DELETED)
+			if ((error_code != ERROR_NETNAME_DELETED) && (error_code != ERROR_CONNECTION_ABORTED))
 				std::cout << "GQCS Error on client[" << key << "], error=" << error_code << "\n";
 
 			disconnect(static_cast<int>(key));
-			if (ex_over->_comp_type == OP_SEND)
+			if ((ex_over->_comp_type == OP_SEND) || (ex_over->_comp_type == OP_SEND_CLOSE) || (ex_over->_comp_type == OP_DBLOGIN_RESULT))
 				delete ex_over;
 
 			continue;
 		}
 
-		if ((0 == num_bytes) && ((ex_over->_comp_type == OP_RECV) || (ex_over->_comp_type == OP_SEND))) {
+		if ((0 == num_bytes) && ((ex_over->_comp_type == OP_RECV) || (ex_over->_comp_type == OP_SEND) || (ex_over->_comp_type == OP_SEND_CLOSE))) {
 			disconnect(static_cast<int>(key));
 
-			if (ex_over->_comp_type == OP_SEND)
+			if ((ex_over->_comp_type == OP_SEND) || (ex_over->_comp_type == OP_SEND_CLOSE) || (ex_over->_comp_type == OP_DBLOGIN_RESULT))
 				delete ex_over;
 
 			continue;
@@ -649,6 +938,35 @@ void worker_thread(HANDLE h_iocp)
 		case OP_SEND:
 			delete ex_over;
 			break;
+		case OP_SEND_CLOSE:
+			delete ex_over;
+			disconnect(static_cast<int>(key));
+			break;
+		case OP_DBLOGIN_RESULT: {
+			int client_id = static_cast<int>(key);
+			bool login_success = ex_over->_db_login_success;
+			char username[MAX_NAME_LEN];
+			char message[50];
+			short login_x = ex_over->_db_x;
+			short login_y = ex_over->_db_y;
+			strcpy_s(username, ex_over->_db_username);
+			strcpy_s(message, ex_over->_db_message);
+			delete ex_over;
+
+			if (login_success) {
+				complete_login_success(client_id, username, login_x, login_y);
+			}
+			else {
+				std::shared_ptr<SESSION> client = get_session_ptr(client_id);
+				{
+					std::lock_guard<mutex> ll{ client->_s_lock };
+					if (ST_ALLOC != client->_state)
+						break;
+				}
+				client->send_login_result_packet(false, message, true);
+			}
+			break;
+		}
 		case OP_NPCMOVE: {
 			delete ex_over;
 			int npc_id = static_cast<int>(key);
@@ -724,6 +1042,40 @@ void timer_thread()
 	}
 }
 
+void db_thread()
+{
+	SQLHENV db_env = SQL_NULL_HENV;
+	SQLHDBC db_conn = SQL_NULL_HDBC;
+	bool db_connected = initialize_db_connection(db_env, db_conn);
+
+	while (true) {
+		db_event_type ev;
+
+		if (db_queue.try_pop(ev)) {
+			switch (ev.event_type) {
+			case DB_LOGIN: {
+				short x = 0;
+				short y = 0;
+				bool exists = false;
+				if (db_connected)
+					exists = db_get_user_position(db_conn, ev.username, x, y);
+				post_db_login_result(ev.client_id, ev.username, exists, x, y, exists ? "" : LOGIN_FAIL_MESSAGE);
+				break;
+			}
+			case DB_SAVE:
+				if (db_connected)
+					db_save_user_position(db_conn, ev.username, ev.x, ev.y);
+				break;
+			default:
+				std::cout << "Unknown DB Event" << std::endl;
+				break;
+			}
+		}
+		else
+			this_thread::sleep_for(chrono::milliseconds(1));
+	}
+}
+
 int main()
 {
 	WSADATA WSAData;
@@ -751,12 +1103,14 @@ int main()
 
 	std::vector<thread> worker_threads;
 	std::thread timer_th(timer_thread);   // HB_thread 대신 timer_thread 사용
+	std::thread db_th(db_thread);
 	int num_threads = std::thread::hardware_concurrency();
 	for (int i = 0; i < num_threads; ++i)
 		worker_threads.emplace_back(worker_thread, h_iocp);
 	for (auto& th : worker_threads)
 		th.join();
 	timer_th.join();
+	db_th.join();
 	closesocket(g_s_socket);
 	WSACleanup();
 }
