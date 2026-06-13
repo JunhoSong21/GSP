@@ -26,21 +26,30 @@ void WorkerThread()
 		BOOL result = ::GetQueuedCompletionStatus(g_h_iocp,
 			&transferred, &completion_key, &overlapped, INFINITE);
 
-		if (nullptr == overlapped)
+		if (nullptr == overlapped) {
+			if (FALSE == result) {
+				int err = ::GetLastError();
+				std::cout << "GQCS failed with error: " << err << std::endl;
+				
+				continue;
+			}
+
 			break;
+		}
 
 		OVEREX* over_ex = reinterpret_cast<OVEREX*>(overlapped);
 		Session* client = reinterpret_cast<Session*>(completion_key);
 
-		bool success;
-		if(TRUE == result)
-			success = true;
-		else {
+		bool success = true;
+		if(FALSE == result) {
 			int err = ::GetLastError();
-			if (ERROR_NETNAME_DELETED == err || ERROR_CONNECTION_ABORTED == err)
-				success = false;
-			else
-				std::cout << "GetQueuedCompletionStatus failed with error: " << err << std::endl;
+			if (ERROR_NETNAME_DELETED != err
+				&& ERROR_CONNECTION_ABORTED != err
+				&& ERROR_OPERATION_ABORTED != err)
+
+				std::cout << "GQCS failed with error: " << err << std::endl;
+		
+			success = false;
 		}
 
 		switch (over_ex->m_iotype) {
@@ -68,6 +77,7 @@ bool PostAccept(SOCKET listen_socket)
 	if (INVALID_SOCKET == accept_over->m_c_socket) {
 		delete accept_over;
 		error_display("client Socket");
+
 		return false;
 	}
 
