@@ -7,7 +7,7 @@
 HANDLE g_h_iocp = INVALID_HANDLE_VALUE;
 tbb::concurrent_unordered_map<uint64_t, std::shared_ptr<Session>> clients;
 
-std::atomic_uint64_t g_next_player_id = 1;
+std::atomic<uint64_t> g_next_player_id = 1;
 
 bool PostAccept(SOCKET listen_socket);
 void Disconnect(Session* client);
@@ -45,9 +45,10 @@ void WorkerThread()
 			int err = ::GetLastError();
 			if (ERROR_NETNAME_DELETED != err
 				&& ERROR_CONNECTION_ABORTED != err
-				&& ERROR_OPERATION_ABORTED != err)
+				&& ERROR_OPERATION_ABORTED != err) {
 
 				std::cout << "GQCS failed with error: " << err << std::endl;
+			}
 		
 			success = false;
 		}
@@ -166,6 +167,7 @@ void HandleAccept(OVEREX* over_ex, bool success)
 		::closesocket(c_socket);
 		PostAccept(listen_socket);
 		delete accept_over;
+
 		return;
 	}
 
@@ -186,11 +188,22 @@ void HandleRecv(Session* client, OVEREX* over_ex, DWORD transferred, bool succes
 		return;
 	}
 
+	if (client->_prev_recv < 0 || BUF_SIZE <= client->_prev_recv) {
+		Disconnect(client);
+		return;
+	}
+
+	const int recv_space = BUF_SIZE - client->_prev_recv;
+	if (static_cast<DWORD>(recv_space) < transferred) {
+		Disconnect(client);
+		return;
+	}
+
 	int remain_size = static_cast<int>(transferred) + client->_prev_recv;
-	char* packet_start = over_ex->m_buf;
+	char* packet_start_pos = over_ex->m_buf;
 
 	while (remain_size > 0) {
-		unsigned char packet_size = static_cast<unsigned char>(packet_start[0]);
+		unsigned char packet_size = static_cast<unsigned char>(packet_start_pos[0]);
 		constexpr int packet_header_size = sizeof(unsigned char) + sizeof(PACKET_TYPE);
 		if (packet_size < packet_header_size) {
 			Disconnect(client);
@@ -200,15 +213,15 @@ void HandleRecv(Session* client, OVEREX* over_ex, DWORD transferred, bool succes
 		if (packet_size > remain_size)
 			break;
 
-		if (false == ProcessPacket(client, packet_start))
+		if (false == ProcessPacket(client, packet_start_pos))
 			return;
 
-		packet_start += packet_size;
+		packet_start_pos += packet_size;
 		remain_size -= packet_size;
 	}
 
 	if (remain_size > 0)
-		::memmove(over_ex->m_buf, packet_start, remain_size);
+		::memmove(over_ex->m_buf, packet_start_pos, remain_size);
 
 	client->_prev_recv = remain_size;
 	client->Recv_Process();

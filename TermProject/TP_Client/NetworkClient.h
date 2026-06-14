@@ -79,6 +79,7 @@ private:
     bool _winsockInitialized{};
     bool _loginAccepted{};
     bool _hasAvatarInfo{};
+
     std::string _username;
     std::string _lastErrorMessage;
     std::string _lastServerMessage;

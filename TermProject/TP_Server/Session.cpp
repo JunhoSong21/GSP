@@ -45,6 +45,13 @@ void Session::Recv_Process()
 	if (false == _connected.load())
 		return;
 
+	if (_prev_recv < 0 || BUF_SIZE <= _prev_recv) {
+		if (true == _connected.exchange(false))
+			::closesocket(_c_socket);
+
+		return;
+	}
+
 	DWORD recv_flag = 0;
 
 	_recv_over.m_iotype = IO_TYPE::IO_RECV;
